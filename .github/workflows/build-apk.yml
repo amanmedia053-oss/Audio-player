@@ -15,12 +15,12 @@ jobs:
       - uses: actions/checkout@v4
 
       # ۱. د جاوا ۱۷ لوډول (د AGP 8.x او Gradle لپاره تر ټولو مناسبه او مستقره نسخه)
+      # په دې برخه کې د cache: 'gradle' لیرې شوی دی ځکه چې د اندروید فولډر د بلډ پر مهال په متحرک ډول جوړیږي
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'zulu'
-          cache: 'gradle'
 
       # ۲. د اړینو کڅوړو انسټالول
       - name: Install Dependencies
