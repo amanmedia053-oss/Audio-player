@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Post, ChannelInfo, PlaybackProgress, AppConfig } from './types';
-import { DEFAULT_APP_CONFIG, FALLBACK_POSTS, FALLBACK_CHANNEL_INFO } from './constants';
+import { DEFAULT_APP_CONFIG } from './constants';
 import { getApiUrl } from './utils';
 import { Toolbar } from './components/Toolbar';
 import { NavigationBar, ActiveTab } from './components/NavigationBar';
@@ -144,25 +144,9 @@ export default function App() {
       const detailInfo = `خطا (Error Type): ${errName}\nتفصیل (Message): ${errMsg}\nد چینل لینک (Channel API): ${channelUrl}\nد کتابونو لینک (Posts API): ${postsUrl}\nټاکل شوی د سرور ادرس (Active Backend URL): ${savedServer}\nوخت (Timestamp): ${new Date().toISOString()}\nمجموعه سیستم (User Agent): ${navigator.userAgent}`;
       setError(detailInfo);
 
-      // Attempt recovery from local backups
-      const localPosts = localStorage.getItem('pashto_cached_posts');
-      const localChannel = localStorage.getItem('pashto_cached_channel');
-      if (localPosts && localChannel) {
-        const rawLocalPosts = JSON.parse(localPosts) as Post[];
-        const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
-        setPosts(filteredPosts);
-        setAppConfig(extractedConfig);
-        setChannelInfo(JSON.parse(localChannel));
-        setIsOnline(false);
-      } else {
-        // If no backup exists, use the client-side pre-packaged high quality curated fallbacks
-        // This prevents full-screen connection errors on the first launch in native WebView/Capacitor context
-        const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
-        setPosts(filteredPosts);
-        setAppConfig(extractedConfig);
-        setChannelInfo(FALLBACK_CHANNEL_INFO);
-        setIsOnline(false);
-      }
+      setPosts([]);
+      setChannelInfo(null);
+      setIsOnline(false);
     } finally {
       setLoading(false);
     }
