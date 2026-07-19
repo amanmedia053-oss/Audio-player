@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Post, PlaybackProgress, AppConfig } from '../types';
+import { getApiUrl } from '../utils';
 import { Play, Pause, Clock, Search, BookOpen, ChevronLeft, Heart } from 'lucide-react';
 
 interface PostListProps {
@@ -107,7 +108,7 @@ export const PostList: React.FC<PostListProps> = ({
             const postImageUrl = (() => {
               const rawUrl = post.images?.[0] || appConfig.scraped_images?.[0] || appConfig.sidebar_cover_url || "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=600&q=80";
               if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
-                return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
+                return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}`);
               }
               return rawUrl;
             })();
@@ -176,7 +177,7 @@ export const PostList: React.FC<PostListProps> = ({
                       src={(() => {
                         const rawUrl = post.images?.[0] || appConfig.scraped_images?.[0] || appConfig.sidebar_cover_url || "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=600&q=80";
                         if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
-                          return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
+                          return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}`);
                         }
                         return rawUrl;
                       })()}

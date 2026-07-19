@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ChannelInfo, AppConfig } from '../types';
+import { getApiUrl } from '../utils';
 import {
   Send,
   Mail,
@@ -19,6 +20,42 @@ interface AboutTabProps {
 }
 
 export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) => {
+  const defaultBackend = 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+  const [serverUrl, setServerUrl] = React.useState(() => {
+    try {
+      return localStorage.getItem('pashto_novel_backend_url') || defaultBackend;
+    } catch (e) {
+      return defaultBackend;
+    }
+  });
+  const [saveStatus, setSaveStatus] = React.useState('');
+
+  const handleSaveServerUrl = () => {
+    try {
+      let url = serverUrl.trim();
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+        url = `https://${url}`;
+      }
+      localStorage.setItem('pashto_novel_backend_url', url);
+      setServerUrl(url);
+      setSaveStatus('سرور ادرس خوندي شو! مهرباني وکړئ خپرونې د نوي کولو لپاره اپلیکیشن یو ځل وتړئ او بیا خلاص کړئ.');
+      setTimeout(() => setSaveStatus(''), 5000);
+    } catch (e) {
+      setSaveStatus('د خوندي کولو تېروتنه.');
+    }
+  };
+
+  const handleResetServerUrl = () => {
+    try {
+      localStorage.setItem('pashto_novel_backend_url', defaultBackend);
+      setServerUrl(defaultBackend);
+      setSaveStatus('سرور ادرس اصلي حالت ته بدل شو.');
+      setTimeout(() => setSaveStatus(''), 4000);
+    } catch (e) {
+      // ignore
+    }
+  };
+
   return (
     <motion.div
       id="about-tab-screen"
@@ -38,7 +75,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
             src={(() => {
               const rawUrl = appConfig.scraped_images?.[1] || appConfig.about_cover_url || "https://images.unsplash.com/photo-1513001900722-370f803f498d?auto=format&fit=crop&w=1000&q=80";
               if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
-                return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
+                return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}`);
               }
               return rawUrl;
             })()}
@@ -65,7 +102,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
               src={(() => {
                 const rawUrl = appConfig.scraped_images?.[2] || appConfig.creator_avatar_url || "https://images.unsplash.com/photo-1607990283143-e81e7a2c93ab?auto=format&fit=crop&w=250&h=250&q=80";
                 if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
-                  return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
+                  return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}`);
                 }
                 return rawUrl;
               })()}
@@ -197,6 +234,44 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
           {appConfig.about_lib_points.map((pt, i) => (
             <p key={i}>{pt}</p>
           ))}
+        </div>
+      </div>
+
+      {/* 4. API Server Connection Settings */}
+      <div className="bg-[#1c1b1f] border border-[#2d2c30] rounded-[24px] p-5 shadow-md space-y-3">
+        <h3 className="text-xs sm:text-sm font-bold text-[#e3e2e6] flex items-center justify-end gap-2 border-b border-[#2d2c30] pb-2">
+          <span>د سیسټم تنظیمات (سرور پیوستون)</span>
+          <Sparkles className="w-4.5 h-4.5 text-[#ffb900]" />
+        </h3>
+        <p className="text-[10px] text-[#8e8d91] leading-relaxed">
+          که چېرې غوښتنلیک د سټوډیو څخه د غږونو خلاصولو یا لوډولو کې ستونزه ولري، تاسو کولی شئ دلته د خپل سرور ادرس بدل یا تنظیم کړئ:
+        </p>
+        <div className="space-y-2 pt-1">
+          <input
+            type="text"
+            value={serverUrl}
+            onChange={(e) => setServerUrl(e.target.value)}
+            dir="ltr"
+            className="w-full px-3 py-2.5 bg-[#2d2c30]/50 border border-[#484649] rounded-xl text-xs text-[#e3e2e6] focus:outline-none focus:border-[#ffb900] tracking-wide"
+            placeholder="https://your-server.run.app"
+          />
+          <div className="flex gap-2 justify-end pt-1">
+            <button
+              onClick={handleResetServerUrl}
+              className="px-3 py-2 bg-[#2d2c30] text-[#c7c6ca] hover:text-white rounded-xl text-[10px] font-bold transition-all"
+            >
+              اصلي حالت ته اړول
+            </button>
+            <button
+              onClick={handleSaveServerUrl}
+              className="px-3 py-2 bg-[#ffb900] text-black hover:bg-[#ffe082] rounded-xl text-[10px] font-bold transition-all"
+            >
+              ادرس خوندي کول
+            </button>
+          </div>
+          {saveStatus && (
+            <p className="text-[10px] text-[#ffb900] text-right mt-2 animate-pulse">{saveStatus}</p>
+          )}
         </div>
       </div>
     </motion.div>
