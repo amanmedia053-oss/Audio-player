@@ -14,6 +14,17 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // CORS middleware for native mobile app access (e.g. Capacitor android app with local origins like http://localhost)
+  app.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // Configuration (Defaults to user credentials, can be overridden by env variables)
   const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "8669994579:AAHykdI8K-PcBdVnisWuwM4TjvGFNBpaR-0";
   const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID || "@afghan_bandi";
