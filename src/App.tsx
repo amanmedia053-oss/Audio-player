@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Post, ChannelInfo, PlaybackProgress, AppConfig } from './types';
-import { DEFAULT_APP_CONFIG } from './constants';
+import { DEFAULT_APP_CONFIG, FALLBACK_POSTS, FALLBACK_CHANNEL_INFO } from './constants';
 import { getApiUrl } from './utils';
 import { Toolbar } from './components/Toolbar';
 import { NavigationBar, ActiveTab } from './components/NavigationBar';
@@ -15,7 +15,7 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { SplashScreen } from './components/SplashScreen';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { SkeletonLoader } from './components/SkeletonLoader';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Copy, Check, RefreshCw } from 'lucide-react';
 
 export default function App() {
   // Navigation State
@@ -33,6 +33,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [copied, setCopied] = useState(false);
 
   // Playback & Audio Control States
   const [currentPost, setCurrentPost] = useState<Post | null>(null);
@@ -52,95 +53,63 @@ export default function App() {
   const lastSavedTimeRef = useRef<number>(0);
   const playPromiseRef = useRef<Promise<void> | null>(null);
 
-  // 1. Initial Data Fetching (Channel Info & Posts list)
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Helper to process raw posts list, extract JSON config if any, and filter it out from playlist
-    const processAndExtractConfig = (rawPosts: Post[]) => {
-      let foundConfig = { ...DEFAULT_APP_CONFIG };
-      
-      const filtered = rawPosts.filter(post => {
-        if (post.text && post.text.includes('{') && post.text.includes('}')) {
-          try {
-            const startIdx = post.text.indexOf('{');
-            const endIdx = post.text.lastIndexOf('}');
-            if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-              const jsonStr = post.text.substring(startIdx, endIdx + 1);
-              const parsed = JSON.parse(jsonStr);
-              if (parsed && typeof parsed === 'object') {
-                foundConfig = { ...foundConfig, ...parsed };
-                if (post.images && post.images.length > 0) {
-                  foundConfig.scraped_images = post.images;
-                }
-                return false; // exclude this config post from audio listings
+  // Helper to process raw posts list, extract JSON config if any, and filter it out from playlist
+  const processAndExtractConfig = (rawPosts: Post[]) => {
+    let foundConfig = { ...DEFAULT_APP_CONFIG };
+    
+    const filtered = rawPosts.filter(post => {
+      if (post.text && post.text.includes('{') && post.text.includes('}')) {
+        try {
+          const startIdx = post.text.indexOf('{');
+          const endIdx = post.text.lastIndexOf('}');
+          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+            const jsonStr = post.text.substring(startIdx, endIdx + 1);
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && typeof parsed === 'object') {
+              foundConfig = { ...foundConfig, ...parsed };
+              if (post.images && post.images.length > 0) {
+                foundConfig.scraped_images = post.images;
               }
+              return false; // exclude this config post from audio listings
             }
-          } catch (e) {
-            // Not valid JSON or other error, treat as regular post
           }
+        } catch (e) {
+          // Not valid JSON or other error, treat as regular post
         }
-        
-        // Only allow posts that contain a valid, non-empty audio file URL
-        if (!post.audio_url || post.audio_url.trim() === '') {
-          return false;
-        }
+      }
+      
+      // Only allow posts that contain a valid, non-empty audio file URL
+      if (!post.audio_url || post.audio_url.trim() === '') {
+        return false;
+      }
 
-        return true;
-      });
+      return true;
+    });
 
-      return { filteredPosts: filtered, extractedConfig: foundConfig };
-    };
+    return { filteredPosts: filtered, extractedConfig: foundConfig };
+  };
 
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const [channelRes, postsRes] = await Promise.all([
-          fetch(getApiUrl('/api/channel-info')),
-          fetch(getApiUrl('/api/posts')),
-        ]);
+      const [channelRes, postsRes] = await Promise.all([
+        fetch(getApiUrl('/api/channel-info')),
+        fetch(getApiUrl('/api/posts')),
+      ]);
 
-        if (!channelRes.ok || !postsRes.ok) {
-          throw new Error('د سرور څخه د معلوماتو په ترلاسه کولو کې تېروتنه رامنځته شوه.');
-        }
+      if (!channelRes.ok || !postsRes.ok) {
+        throw new Error(`د سرور خطا: د چینل ځواب حالت: ${channelRes.status} (${channelRes.statusText})، د خپرونو ځواب حالت: ${postsRes.status} (${postsRes.statusText})`);
+      }
 
-        const channelData = (await channelRes.json()) as ChannelInfo;
-        const postsData = (await postsRes.json()) as Post[];
+      const channelData = (await channelRes.json()) as ChannelInfo;
+      const postsData = (await postsRes.json()) as Post[];
 
-        // Check if the service worker returned the offline fallback json
-        if ((channelData as any).isOffline || (postsData as any).isOffline) {
-          setIsOnline(false);
-          // Try to load full backups from localStorage if available
-          const localPosts = localStorage.getItem('pashto_cached_posts');
-          const localChannel = localStorage.getItem('pashto_cached_channel');
-          if (localPosts && localChannel) {
-            const rawLocalPosts = JSON.parse(localPosts) as Post[];
-            const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
-            setPosts(filteredPosts);
-            setAppConfig(extractedConfig);
-            setChannelInfo(JSON.parse(localChannel));
-            setLoading(false);
-            return;
-          }
-        } else {
-          // Keep a fresh backup in localStorage
-          localStorage.setItem('pashto_cached_posts', JSON.stringify(postsData));
-          localStorage.setItem('pashto_cached_channel', JSON.stringify(channelData));
-        }
-
-        const { filteredPosts, extractedConfig } = processAndExtractConfig(postsData);
-        setChannelInfo(channelData);
-        setPosts(filteredPosts);
-        setAppConfig(extractedConfig);
-      } catch (err: any) {
-        console.error('Fetch error:', err);
-        // Attempt recovery from local backups
+      // Check if the service worker returned the offline fallback json
+      if ((channelData as any).isOffline || (postsData as any).isOffline) {
+        setIsOnline(false);
+        // Try to load full backups from localStorage if available
         const localPosts = localStorage.getItem('pashto_cached_posts');
         const localChannel = localStorage.getItem('pashto_cached_channel');
         if (localPosts && localChannel) {
@@ -149,14 +118,66 @@ export default function App() {
           setPosts(filteredPosts);
           setAppConfig(extractedConfig);
           setChannelInfo(JSON.parse(localChannel));
-          setIsOnline(false);
-        } else {
-          setError('پیوستون ناکام شو. مهرباني وکړئ خپل اینټرنیټ وګورئ او پاڼه بیا پورته کړئ.');
+          setLoading(false);
+          return;
         }
-      } finally {
-        setLoading(false);
+      } else {
+        // Keep a fresh backup in localStorage
+        localStorage.setItem('pashto_cached_posts', JSON.stringify(postsData));
+        localStorage.setItem('pashto_cached_channel', JSON.stringify(channelData));
+        setIsOnline(true);
       }
+
+      const { filteredPosts, extractedConfig } = processAndExtractConfig(postsData);
+      setChannelInfo(channelData);
+      setPosts(filteredPosts);
+      setAppConfig(extractedConfig);
+    } catch (err: any) {
+      console.error('Fetch error:', err);
+      
+      // Construct exact descriptive diagnostic error
+      const postsUrl = getApiUrl('/api/posts');
+      const channelUrl = getApiUrl('/api/channel-info');
+      const errName = err?.name || 'NetworkError';
+      const errMsg = err?.message || err?.toString() || 'Failed to fetch';
+      const savedServer = localStorage.getItem('pashto_novel_backend_url') || 'د سټوډیو اصلي سرور';
+      const detailInfo = `خطا (Error Type): ${errName}\nتفصیل (Message): ${errMsg}\nد چینل لینک (Channel API): ${channelUrl}\nد کتابونو لینک (Posts API): ${postsUrl}\nټاکل شوی د سرور ادرس (Active Backend URL): ${savedServer}\nوخت (Timestamp): ${new Date().toISOString()}\nمجموعه سیستم (User Agent): ${navigator.userAgent}`;
+      setError(detailInfo);
+
+      // Attempt recovery from local backups
+      const localPosts = localStorage.getItem('pashto_cached_posts');
+      const localChannel = localStorage.getItem('pashto_cached_channel');
+      if (localPosts && localChannel) {
+        const rawLocalPosts = JSON.parse(localPosts) as Post[];
+        const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
+        setPosts(filteredPosts);
+        setAppConfig(extractedConfig);
+        setChannelInfo(JSON.parse(localChannel));
+        setIsOnline(false);
+      } else {
+        // If no backup exists, use the client-side pre-packaged high quality curated fallbacks
+        // This prevents full-screen connection errors on the first launch in native WebView/Capacitor context
+        const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
+        setPosts(filteredPosts);
+        setAppConfig(extractedConfig);
+        setChannelInfo(FALLBACK_CHANNEL_INFO);
+        setIsOnline(false);
+      }
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // 1. Initial Data Fetching (Channel Info & Posts list)
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      fetchData();
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     fetchData();
 
@@ -695,18 +716,82 @@ export default function App() {
                   {/* Global Error Banner */}
                   {error && !loading && (
                     <div id="main-error-banner" className="max-w-4xl mx-auto px-4 sm:px-6">
-                      <div className="flex items-center gap-3 bg-[#3a1d1d] text-[#ffb4ab] p-5 rounded-3xl border border-[#8c1d1d] shadow-lg">
-                        <AlertCircle className="w-6 h-6 shrink-0" />
-                        <div className="text-right">
-                          <h4 className="font-bold text-sm">{appConfig.app_error_title || "پیوستون تېروتنه!"}</h4>
-                          <p className="text-xs text-[#ffb4ab]/85 mt-0.5">{error}</p>
+                      <div className="bg-[#241313] text-[#ffb4ab] p-6 rounded-[28px] border border-[#ffb4ab]/20 shadow-xl space-y-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2.5 bg-[#ffb4ab]/10 rounded-2xl text-[#ffb4ab] shrink-0 mt-0.5">
+                              <AlertCircle className="w-6 h-6" />
+                            </div>
+                            <div className="text-right">
+                              <h4 className="font-bold text-base text-[#ffdad6]">{appConfig.app_error_title || "د سرور سره د پیوستون تېروتنه!"}</h4>
+                              <p className="text-xs text-[#ffb4ab]/80 mt-1 leading-relaxed">
+                                غوښتنلیک نشي کولی د اصلي غږیز سرور سره ونښلي. لاندې د دې تېروتنې دقیق تخنیکي معلومات کاپي کړئ او زموږ سره یې د حل کولو لپاره واټساپ یا ټیلیګرام کې شریک کړئ.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Exact Error details container with scroll */}
+                        <div className="space-y-1.5 text-right">
+                          <span className="text-[10px] font-bold text-[#ffb4ab]/60 uppercase tracking-wider block">د خطا دقیق تخنیکي جزییات:</span>
+                          <div dir="ltr" className="bg-[#140b0b] rounded-2xl p-4 border border-[#ffb4ab]/10 max-h-48 overflow-y-auto text-left font-mono text-[11px] leading-relaxed text-[#ffdad6]/90 select-text whitespace-pre-wrap break-all shadow-inner">
+                            {error}
+                          </div>
+                        </div>
+
+                        {/* Interactive action buttons */}
+                        <div className="flex flex-wrap items-center gap-2 pt-1 justify-end">
+                          <button
+                            onClick={async () => {
+                              try {
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  await navigator.clipboard.writeText(error);
+                                } else {
+                                  // Fallback text copy for older WebView or strict iFrames
+                                  const textarea = document.createElement('textarea');
+                                  textarea.value = error;
+                                  textarea.style.position = 'fixed';
+                                  document.body.appendChild(textarea);
+                                  textarea.focus();
+                                  textarea.select();
+                                  document.execCommand('copy');
+                                  document.body.removeChild(textarea);
+                                }
+                                setCopied(true);
+                                setTimeout(() => setCopied(false), 3000);
+                              } catch (err) {
+                                alert('کاپي نشوه، مهرباني وکړئ متن په مستقیم ډول وټاکئ او کاپي یې کړئ.');
+                              }
+                            }}
+                            className="px-4 py-2.5 bg-[#ffb4ab] hover:bg-[#ffdad6] text-[#690005] font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md shrink-0 active:scale-95"
+                          >
+                            {copied ? (
+                              <>
+                                <Check className="w-4 h-4 shrink-0 animate-bounce" />
+                                <span>کاپي شوه! (Copied)</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-4 h-4 shrink-0" />
+                                <span>د تېروتنې معلومات کاپي کړئ</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            onClick={fetchData}
+                            className="px-4 py-2.5 bg-[#40000a] hover:bg-[#5c0012] text-[#ffdad6] border border-[#ffb4ab]/30 font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shrink-0 active:scale-95"
+                          >
+                            <RefreshCw className="w-4 h-4 shrink-0" />
+                            <span>بیا هڅه وکړئ (Retry)</span>
+                          </button>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {/* Feed of Audio Novel Posts */}
-                  {!loading && !error && (
+                  {!loading && (
                     <PostList
                       posts={posts}
                       currentPlayingPost={currentPost}

@@ -124,3 +124,81 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   about_cover_url: aboutCover,
   creator_avatar_url: aboutProfile,
 };
+
+export const FALLBACK_CHANNEL_INFO = {
+  name: "افغان بانډي (رسمي غږیز کتابتون)",
+  description: "د افغان بانډي د غږیز سټوډیو څخه د غوره پښتو کیسو، پند لرونکو روایتونو او تاریخي رنګینو ناولونو عالي ټولګه.",
+  avatar_url: "https://images.unsplash.com/photo-1474932430478-367db26836c1?w=250&h=250&fit=crop"
+};
+
+export const FALLBACK_POSTS = [
+  {
+    id: "afg-config",
+    text: JSON.stringify({
+      tab_home: 'اصلي پاڼه',
+      about_creator_name: 'عبيدالله غفاري',
+      about_creator_role: 'د افغان بانډي غږیز کتابتون رسمي لوستونکی او پرمخ وړونکی',
+      about_intro_text: 'موږ د زړه له کومې ستاسو لپاره د پښتو ادبیاتو په تېره بیا د لنډو کیسو، پند لرونکو داستانونو او غوره تاریخي ناولونو د ثبتولو هڅه کوو. زموږ موخه پښتو غږیزو کتابونو ته د چټک او لوړ کیفیت لاسرسی دی.',
+      onboarding_step1_badge: 'بې ساري هرکلى',
+      onboarding_step1_title: 'رسمي غږیز کتابتون ته ښه راغلاست! 🎧',
+      onboarding_step1_desc: 'دلته به تاسو د پښتو غوره ناولونه او غږیز داستانونه په عالي او رنګین سټوډیویي غږ سره ومومئ.',
+      onboarding_step2_badge: 'سمارټ افلاین ثبتونه',
+      onboarding_step2_title: 'ستاسو د اورېدو پرمختګ خوندي کېږي 💾',
+      onboarding_step2_desc: 'ستاسو د اورېدو پروسه په اوتومات ډول په هر ګام کې ثبتیږي نو په اسانۍ سره یې د پاتې برخې څخه پیلولی شئ.',
+      onboarding_step3_badge: 'خوښ شوي ناولونه',
+      onboarding_step3_title: 'زما د خوښو کڅوړه ❤️',
+      onboarding_step3_desc: 'کوم فصلونه چې ستاسو ډېر خوښېږي په نښه کړئ ترڅو په هر وخت کې ورته اسانه او ګړندی لاسرسی ولرئ.'
+    }, null, 2),
+    audio_url: "",
+    duration: "0:00",
+    date: "2026-07-17T12:00:00Z",
+    images: [
+      "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80",
+      "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1000&q=80",
+      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop"
+    ]
+  },
+  {
+    id: "afg-1",
+    text: "د افغان بانډي غږیز ناول - د مستانه او همراز د جلاوطنۍ داستان: لومړی څپرکی - په دې برخه کې د دوو مینو زړونو ناڅاپي بېلتون او د کلي په رنګین ماښام کې د وروستي لید کاته جزییات واورئ.",
+    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+    duration: "12:15",
+    date: "2026-07-16T12:00:00Z"
+  },
+  {
+    id: "afg-2",
+    text: "د افغان بانډي غږیز ناول - د غره په لمنو کې د سولې غږ: دویم څپرکی - په دې غږیزه برخه کې د کوچي احمد د خیمو او مېړانې داستان راسپړل کېږي چې څنګه یې خپل ایل د سختو توپانونو څخه وژغوره.",
+    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+    duration: "14:40",
+    date: "2026-07-16T11:30:00Z"
+  },
+  {
+    id: "afg-3",
+    text: "د افغان بانډي غږیز ناول - د پټو اوښکو مینه: درېیم څپرکی - د یوې مینه ناکې نجلۍ د زړه درد او په تور تيارو شپو کې د خپل تري تم شوي همسفر د راستنېدو په هيله د دعاګانو او ډاډ زړه راښکونکی غږ.",
+    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+    duration: "09:55",
+    date: "2026-07-16T11:00:00Z"
+  },
+  {
+    id: "afg-4",
+    text: "د افغان بانډي غږیز ناول - د کاروان زنګونه او د هجران ویر: څلورم څپرکی - د پېښور او کابل ترمنځ د زړو موټرو په اوږده سفر کې د زړونو د تبادلې او د ژوند د نویو ملګرتیاوو پيل.",
+    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+    duration: "11:22",
+    date: "2026-07-16T10:30:00Z"
+  },
+  {
+    id: "afg-5",
+    text: "د افغان بانډي غږیز ناول - د سپېده داغ رڼا او د کلي اختر: پنځم څپرکی - وروسته له اوږدو کلونو څخه د ټولو جلا شوو دوستانو بېرته یوځای کېدل او د نوي پښتون نسل د بریالیتوب غږیز تمثیل.",
+    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+    duration: "16:05",
+    date: "2026-07-16T10:00:00Z"
+  },
+  {
+    id: "afg-6",
+    text: "د افغان بانډي غږیز ناول - د برخلیک کرښې: شپږم څپرکی - د دې په زړه پورې غږیز ناول وروستۍ برخه، چې پکې د زړونو مینه رښتینې کچې ته رسېږي او د نوې هیلې څرک روښانه کېږي.",
+    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
+    duration: "15:18",
+    date: "2026-07-16T09:30:00Z"
+  }
+];
+
