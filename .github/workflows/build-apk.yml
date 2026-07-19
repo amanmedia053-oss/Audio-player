@@ -24,6 +24,9 @@ jobs:
       # ۲. د اړینو کڅوړو انسټالول
       - name: Install Dependencies
         run: |
+          echo "Node.js version check:"
+          node -v
+          npm -v
           npm install --legacy-peer-deps
           npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets @capacitor/share @capacitor/filesystem @capacitor/local-notifications
 
@@ -34,6 +37,8 @@ jobs:
       # ۴. د Capacitor سره همغږي او اندروید پروژې رامنځته کول
       - name: Initialize and Add Android
         run: |
+          echo "Node.js version check before running Capacitor:"
+          node -v
           # د مخکې جوړ شوي capacitor.config.ts په مرسته اندروید اضافه کړئ
           npx cap add android
           npx cap sync android
