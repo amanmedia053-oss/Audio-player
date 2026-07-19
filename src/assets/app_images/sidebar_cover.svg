@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#121115" />
+      <stop offset="50%" stop-color="#1c1b1f" />
+      <stop offset="100%" stop-color="#2d2200" />
+    </linearGradient>
+    <linearGradient id="gold-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e0a300" />
+      <stop offset="50%" stop-color="#ffb900" />
+      <stop offset="100%" stop-color="#ffdd80" />
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffb900" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#ffb900" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="450" fill="url(#bg-grad)" />
+  
+  <!-- Ambient Glow -->
+  <circle cx="400" cy="225" r="300" fill="url(#glow)" />
+
+  <!-- Geometric Abstract Shapes -->
+  <g opacity="0.1" stroke="#ffb900" stroke-width="1" fill="none">
+    <circle cx="400" cy="225" r="200" />
+    <circle cx="400" cy="225" r="150" />
+    <line x1="0" y1="225" x2="800" y2="225" />
+    <line x1="400" y1="0" x2="400" y2="450" />
+  </g>
+
+  <!-- Audio Waves -->
+  <g opacity="0.6">
+    <path d="M 250 225 Q 325 150 400 225 T 550 225" fill="none" stroke="url(#gold-grad)" stroke-width="3" />
+    <path d="M 200 225 Q 300 280 400 225 T 600 225" fill="none" stroke="#ffb900" stroke-width="1.5" opacity="0.4" />
+  </g>
+
+  <!-- Centered Open Book and Headphones Symbol -->
+  <g transform="translate(400, 200) scale(1.5)">
+    <!-- Book -->
+    <path d="M -30,-10 C -15,-20 0,-15 0,-5 L 0,25 C 0,15 -15,10 -30,20 Z" fill="none" stroke="url(#gold-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 30,-10 C 15,-20 0,-15 0,-5 L 0,25 C 0,15 15,10 30,20 Z" fill="none" stroke="url(#gold-grad)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+    <!-- Headphones -->
+    <path d="M -40,15 C -40,-35 40,-35 40,15" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" />
+    <rect x="-44" y="8" width="8" height="15" rx="3" fill="#ffffff" />
+    <rect x="36" y="8" width="8" height="15" rx="3" fill="#ffffff" />
+  </g>
+
+  <!-- Elegant Afghan/Pashto Audiobook Library Text -->
+  <text x="400" y="340" fill="url(#gold-grad)" font-family="system-ui, sans-serif" font-size="28" font-weight="900" text-anchor="middle" letter-spacing="2">د اسلامي کاريالونو څانګه</text>
+  <text x="400" y="375" fill="#8e8d91" font-family="monospace" font-size="14" text-anchor="middle" letter-spacing="4">Islamic Apps   </text>
+</svg>

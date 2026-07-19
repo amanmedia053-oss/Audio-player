@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 428" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg-grad-about" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#121115" />
+      <stop offset="60%" stop-color="#1c1b1f" />
+      <stop offset="100%" stop-color="#2d2400" />
+    </linearGradient>
+    <linearGradient id="gold-grad-about" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffb900" />
+      <stop offset="100%" stop-color="#ffdd80" />
+    </linearGradient>
+    <radialGradient id="glow-about" cx="80%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="#ffb900" stop-opacity="0.12" />
+      <stop offset="100%" stop-color="#ffb900" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="428" fill="url(#bg-grad-about)" />
+  <circle cx="800" cy="214" r="350" fill="url(#glow-about)" />
+
+  <!-- Elegant Islamic/Afghan geometric pattern overlay on the left/right corners -->
+  <g opacity="0.05" stroke="#ffb900" stroke-width="1" fill="none">
+    <path d="M 0,0 L 200,214 L 0,428 M 1000,0 L 800,214 L 1000,428" />
+    <circle cx="500" cy="214" r="180" />
+    <circle cx="500" cy="214" r="220" />
+  </g>
+
+  <!-- Decorative Sparkles and Waves -->
+  <g opacity="0.7">
+    <path d="M 150,214 Q 300,100 450,214 T 750,214" fill="none" stroke="url(#gold-grad-about)" stroke-width="2.5" />
+    <path d="M 250,214 Q 400,300 550,214 T 850,214" fill="none" stroke="#ffffff" stroke-width="1.5" opacity="0.3" />
+  </g>
+
+  <!-- Center Artwork (Audio Microphone / Book fusion) -->
+  <g transform="translate(500, 160) scale(1.3)">
+    <path d="M -20,-10 C -10,-18 0,-12 0,-3 L 0,22 C 0,13 -10,8 -20,16 Z" fill="none" stroke="url(#gold-grad-about)" stroke-width="2.5" />
+    <path d="M 20,-10 C 10,-18 0,-12 0,-3 L 0,22 C 0,13 10,8 20,16 Z" fill="none" stroke="url(#gold-grad-about)" stroke-width="2.5" />
+    <line x1="0" y1="-25" x2="0" y2="25" stroke="#ffb900" stroke-width="2" />
+    <circle cx="0" cy="-25" r="4" fill="#ffffff" />
+  </g>
+
+  <!-- About Tab Branding Texts -->
+  <text x="500" y="295" fill="url(#gold-grad-about)" font-family="system-ui, sans-serif" font-size="32" font-weight="900" text-anchor="middle">يو افغان بندي په ګوانتانامو کې</text>
+  <text x="500" y="335" fill="#c7c6ca" font-family="system-ui, sans-serif" font-size="16" text-anchor="middle"> وياند : عثمان صافی</text>
+</svg>
