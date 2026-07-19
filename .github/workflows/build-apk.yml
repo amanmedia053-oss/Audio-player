@@ -12,15 +12,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      # ۱. د جاوا ۱۷ لوډول (د AGP 8.x او Gradle لپاره تر ټولو مناسبه او مستقره نسخه)
-      # په دې برخه کې د cache: 'gradle' لیرې شوی دی ځکه چې د اندروید فولډر د بلډ پر مهال په متحرک ډول جوړیږي
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      # ۱. د نوي او باثباته Node.js نسخه تنظیمول ترڅو د زړې نسخې خبرداری ورنکړي
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          java-version: '17'
-          distribution: 'zulu'
+          node-version: '20'
 
       # ۲. د اړینو کڅوړو انسټالول
       - name: Install Dependencies
@@ -32,14 +31,14 @@ jobs:
       - name: Build Web App
         run: npm run build
 
-      # ۴. د Capacitor سره همغږي او اندروید فولډر جوړول
+      # ۴. د Capacitor سره همغږي او اندروید پروژې رامنځته کول
       - name: Initialize and Add Android
         run: |
           # د مخکې جوړ شوي capacitor.config.ts په مرسته اندروید اضافه کړئ
           npx cap add android
           npx cap sync android
 
-      # ۵. د شبکې، فایلونو او نوټیفیکیشنونو اجازې سمول
+      # ۵. د شبکې، فایلونو او نوټیفیکیشنونو اجازې سمول (په مانیفیسټ کې)
       - name: Configure Android Manifest Permissions
         run: |
           cd android/app/src/main
@@ -57,7 +56,17 @@ jobs:
           # د مانیفیسټ کتنه
           cat AndroidManifest.xml
 
-      # ۶. د آیکن او لوګو برخه
+      # ۶. د جاوا ۲۱ لوډول (د AGP 8.x او Gradle او د نوي Capacitor نسخو لپاره اړینه نسخه)
+      # په دې ځای کې د Java لوډول ترسره کیږي ترڅو د 'No file matched to build.gradle' خطا رانشي، ځکه چې د اندروید فولډر لا دمخه په پورته ګام کې جوړ شوی دی.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+          cache: 'gradle'
+          cache-dependency-path: 'android/build.gradle'
+
+      # ۷. د آیکن او لوګو برخه
       - name: Generate Icon
         run: |
           if [ -f "logo.png" ]; then
@@ -72,7 +81,7 @@ jobs:
             echo "Warning: No logo found, skipping icon generation."
           fi
 
-      # ۷. د Kotlin نسخه همغږي کول ترڅو د Duplicates شخړه رامنځته نشي
+      # ۸. د Kotlin نسخه همغږي کول ترڅو د Duplicates شخړه رامنځته نشي
       - name: Fix Kotlin Dependency Conflict
         run: |
           cd android
@@ -87,7 +96,7 @@ jobs:
           echo "    }" >> build.gradle
           echo "}" >> build.gradle
 
-      # ۸. د Debug او Release APK جوړول
+      # ۹. د Debug او Release APK جوړول
       - name: Build Android APK (Debug & Release)
         run: |
           cd android
@@ -95,7 +104,7 @@ jobs:
           ./gradlew assembleDebug
           ./gradlew assembleRelease
 
-      # ۹. د اپلیکیشن رسمي لاسلیک کول
+      # ۱۰. د اپلیکیشن رسمي لاسلیک کول
       - name: Sign Release APK with Custom Keystore
         run: |
           # د لاسلیک جوړول
@@ -132,7 +141,7 @@ jobs:
           $apksigner_path verify android/app/build/outputs/apk/release/app-release-signed.apk
           echo "Release APK successfully signed!"
 
-      # ۱۰. د اپلیکیشن پورته کول (Artifacts)
+      # ۱۱. د اپلیکیشن پورته کول (Artifacts)
       - name: Upload Signed and Debug APKs
         uses: actions/upload-artifact@v4
         with:
