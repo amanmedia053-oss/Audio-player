@@ -1,7 +1,10 @@
 name: Build Android APK
 on:
   push:
-    branches: [ main ]
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,57 +14,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ۱. جاوا ۲۱ (د Gradle د ستونزو لپاره)
-      - name: set up JDK 21
+      # ۱. د جاوا ۱۷ لوډول (د AGP 8.x او Gradle لپاره تر ټولو مناسبه او مستقره نسخه)
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
+          java-version: '17'
           distribution: 'zulu'
+          cache: 'gradle'
 
-      - name: Install dependencies
+      # ۲. د اړینو کڅوړو انسټالول
+      - name: Install Dependencies
         run: |
-          npm install
-          # د Capacitor غښتلي او اړین کتابتونونه انسټالول
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets @capacitor/share @capacitor/filesystem @capacitor/local-notifications
+          npm install --legacy-peer-deps
+          npm install --legacy-peer-deps @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets @capacitor/share @capacitor/filesystem @capacitor/local-notifications
 
+      # ۳. د ویب پاڼې بلډ جوړول
       - name: Build Web App
         run: npm run build
 
-      - name: Sync with Capacitor
+      # ۴. د Capacitor سره همغږي او اندروید فولډر جوړول
+      - name: Initialize and Add Android
         run: |
-          # د اپلیکیشن نوم او خپل Package ID تنظیمول
-          npx cap init "د مينې ډيوه" "com.amanmedia.love" --web-dir dist
+          # د مخکې جوړ شوي capacitor.config.ts په مرسته اندروید اضافه کړئ
           npx cap add android
-
-      # ۳. د شبکې، د فایلونو ثبتولو او نوټیفیکیشنونو د اجازو خلاصول
-      - name: Configure Capacitor HTTP and Android Permissions
-        run: |
-          # الف: په اتومات ډول د CapacitorHttp فعالول ترڅو د شبکې او CORS ستونزه حل شي
-          if [ -f "capacitor.config.json" ]; then
-            jq '.plugins.CapacitorHttp.enabled = true' capacitor.config.json > tmp.json && mv tmp.json capacitor.config.json
-          elif [ -f "capacitor.config.ts" ]; then
-            echo "Warning: TypeScript config found, please ensure CapacitorHttp is enabled manually."
-          fi
-
-          # د باوري همغږۍ (Sync) کمانډ چلول د اندروید پروژې جوړولو لپاره
           npx cap sync android
 
+      # ۵. د شبکې، فایلونو او نوټیفیکیشنونو اجازې سمول
+      - name: Configure Android Manifest Permissions
+        run: |
           cd android/app/src/main
           
-          # ب: په خوندي ډول د انټرنیټ، سټوریج (غالري کې د عکس ذخیره کولو لپاره) او نوټیفیکیشنونو اجازې ور اضافه کول
+          # په خوندي توګه د انټرنیټ او د فایلونو لوستلو/لیکلو او نوټیفیکیشنونو اجازې اضافه کول
           grep -q "android.permission.INTERNET" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
           grep -q "android.permission.READ_EXTERNAL_STORAGE" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' AndroidManifest.xml
           grep -q "android.permission.WRITE_EXTERNAL_STORAGE" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' AndroidManifest.xml
           grep -q "android.permission.POST_NOTIFICATIONS" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' AndroidManifest.xml
           grep -q "android.permission.READ_MEDIA_IMAGES" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />' AndroidManifest.xml
           
-          # ج: د دباوند او HTTP ټرافیک (Cleartext) او میراثي سټوریج طریقه فعاله کول
+          # د دباوند او HTTP ټرافیک (Cleartext) او میراثي سټوریج طریقه فعاله کول
           sed -i 's/<application/<application android:usesCleartextTraffic="true" android:requestLegacyExternalStorage="true"/g' AndroidManifest.xml
           
-          # د تایید لپاره د فایل ښودل
+          # د مانیفیسټ کتنه
           cat AndroidManifest.xml
 
-      # ۲. د آیکن او لوګو برخه په اتومات بڼه
+      # ۶. د آیکن او لوګو برخه
       - name: Generate Icon
         run: |
           if [ -f "logo.png" ]; then
@@ -76,33 +72,33 @@ jobs:
             echo "Warning: No logo found, skipping icon generation."
           fi
 
-      # ۴. د اندروید په نویو بڼو کې د Kotlin کشمکش کنټرولول
+      # ۷. د Kotlin نسخه همغږي کول ترڅو د Duplicates شخړه رامنځته نشي
       - name: Fix Kotlin Dependency Conflict
         run: |
           cd android
           echo "" >> build.gradle
           echo "allprojects {" >> build.gradle
           echo "    configurations.all {" >> build.gradle
-          echo "    resolutionStrategy {" >> build.gradle
-          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'" >> build.gradle
-          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'" >> build.gradle
-          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'" >> build.gradle
+          echo "        resolutionStrategy {" >> build.gradle
+          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'" >> build.gradle
+          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.22'" >> build.gradle
+          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.22'" >> build.gradle
           echo "        }" >> build.gradle
           echo "    }" >> build.gradle
           echo "}" >> build.gradle
 
+      # ۸. د Debug او Release APK جوړول
       - name: Build Android APK (Debug & Release)
         run: |
           cd android
           chmod +x gradlew
-          # ۱. د ډیبګ اپلیکیشن فایل جوړول
           ./gradlew assembleDebug
-          # ۲. د رسمي ریلیز اپلیکیشن فایل جوړول
           ./gradlew assembleRelease
 
+      # ۹. د اپلیکیشن رسمي لاسلیک کول
       - name: Sign Release APK with Custom Keystore
         run: |
-          # د یو ځانګړي او بېساري لاسلیک (Unique Custom Keystore) جوړول
+          # د لاسلیک جوړول
           keytool -genkeypair -v -keystore release.keystore \
             -alias love-key \
             -keyalg RSA \
@@ -112,11 +108,11 @@ jobs:
             -keypass "AmanMediaLove123" \
             -dname "CN=Aman Media, OU=Mobile, O=Aman Media, L=Kabul, S=Kabul, C=AF"
           
-          # په منډه د apksigner اوزار لاره معلومول
+          # د apksigner پېژندنه
           apksigner_path=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
           echo "Using apksigner at: $apksigner_path"
           
-          # په ریلیز فولډر کې د جوړ شوي ناامضا شوي APK فایل اتوماتیک موندل
+          # د غیر لاسلیک شوي اپلیکیشن موندل
           unsigned_apk=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
           if [ -z "$unsigned_apk" ]; then
             echo "Error: Unsigned release APK not found!"
@@ -124,7 +120,7 @@ jobs:
           fi
           echo "Found unsigned release APK: $unsigned_apk"
           
-          # رسماً لاسلیک کول (Signing)
+          # لاسلیک کول
           $apksigner_path sign --ks release.keystore \
             --ks-key-alias love-key \
             -ks-pass pass:AmanMediaLove123 \
@@ -132,10 +128,11 @@ jobs:
             --out android/app/build/outputs/apk/release/app-release-signed.apk \
             "$unsigned_apk"
           
-          # د لاسلیک تاییدول (Verify Signature)
+          # تایید کول
           $apksigner_path verify android/app/build/outputs/apk/release/app-release-signed.apk
           echo "Release APK successfully signed!"
 
+      # ۱۰. د اپلیکیشن پورته کول (Artifacts)
       - name: Upload Signed and Debug APKs
         uses: actions/upload-artifact@v4
         with:
@@ -143,149 +140,3 @@ jobs:
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/release/app-release-signed.apk
-            name: Build Android APK
-on:
-  push:
-    branches: [ main ]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      # ۱. جاوا ۲۱ (د Gradle د ستونزو لپاره)
-      - name: set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'zulu'
-
-      - name: Install dependencies
-        run: |
-          npm install
-          # د Capacitor غښتلي او اړین کتابتونونه انسټالول
-          npm install @capacitor/core @capacitor/cli @capacitor/android @capacitor/assets @capacitor/share @capacitor/filesystem @capacitor/local-notifications
-
-      - name: Build Web App
-        run: npm run build
-
-      - name: Sync with Capacitor
-        run: |
-          # د اپلیکیشن نوم او خپل Package ID تنظیمول
-          npx cap init "د مينې ډيوه" "com.amanmedia.love" --web-dir dist
-          npx cap add android
-
-      # ۳. د شبکې، د فایلونو ثبتولو او نوټیفیکیشنونو د اجازو خلاصول
-      - name: Configure Capacitor HTTP and Android Permissions
-        run: |
-          # الف: په اتومات ډول د CapacitorHttp فعالول ترڅو د شبکې او CORS ستونزه حل شي
-          if [ -f "capacitor.config.json" ]; then
-            jq '.plugins.CapacitorHttp.enabled = true' capacitor.config.json > tmp.json && mv tmp.json capacitor.config.json
-          elif [ -f "capacitor.config.ts" ]; then
-            echo "Warning: TypeScript config found, please ensure CapacitorHttp is enabled manually."
-          fi
-
-          # د باوري همغږۍ (Sync) کمانډ چلول د اندروید پروژې جوړولو لپاره
-          npx cap sync android
-
-          cd android/app/src/main
-          
-          # ب: په خوندي ډول د انټرنیټ، سټوریج (غالري کې د عکس ذخیره کولو لپاره) او نوټیفیکیشنونو اجازې ور اضافه کول
-          grep -q "android.permission.INTERNET" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET" />' AndroidManifest.xml
-          grep -q "android.permission.READ_EXTERNAL_STORAGE" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' AndroidManifest.xml
-          grep -q "android.permission.WRITE_EXTERNAL_STORAGE" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' AndroidManifest.xml
-          grep -q "android.permission.POST_NOTIFICATIONS" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />' AndroidManifest.xml
-          grep -q "android.permission.READ_MEDIA_IMAGES" AndroidManifest.xml || sed -i '/<manifest/a \    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />' AndroidManifest.xml
-          
-          # ج: د دباوند او HTTP ټرافیک (Cleartext) او میراثي سټوریج طریقه فعاله کول
-          sed -i 's/<application/<application android:usesCleartextTraffic="true" android:requestLegacyExternalStorage="true"/g' AndroidManifest.xml
-          
-          # د تایید لپاره د فایل ښودل
-          cat AndroidManifest.xml
-
-      # ۲. د آیکن او لوګو برخه په اتومات بڼه
-      - name: Generate Icon
-        run: |
-          if [ -f "logo.png" ]; then
-            mkdir -p assets
-            cp logo.png assets/icon.png
-            npx capacitor-assets generate --android
-          elif [ -f "src/assets/logo.png" ]; then
-            mkdir -p assets
-            cp src/assets/logo.png assets/icon.png
-            npx capacitor-assets generate --android
-          else
-            echo "Warning: No logo found, skipping icon generation."
-          fi
-
-      # ۴. د اندروید په نویو بڼو کې د Kotlin کشمکش کنټرولول
-      - name: Fix Kotlin Dependency Conflict
-        run: |
-          cd android
-          echo "" >> build.gradle
-          echo "allprojects {" >> build.gradle
-          echo "    configurations.all {" >> build.gradle
-          echo "    resolutionStrategy {" >> build.gradle
-          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'" >> build.gradle
-          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'" >> build.gradle
-          echo "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'" >> build.gradle
-          echo "        }" >> build.gradle
-          echo "    }" >> build.gradle
-          echo "}" >> build.gradle
-
-      - name: Build Android APK (Debug & Release)
-        run: |
-          cd android
-          chmod +x gradlew
-          # ۱. د ډیبګ اپلیکیشن فایل جوړول
-          ./gradlew assembleDebug
-          # ۲. د رسمي ریلیز اپلیکیشن فایل جوړول
-          ./gradlew assembleRelease
-
-      - name: Sign Release APK with Custom Keystore
-        run: |
-          # د یو ځانګړي او بېساري لاسلیک (Unique Custom Keystore) جوړول
-          keytool -genkeypair -v -keystore release.keystore \
-            -alias love-key \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass "AmanMediaLove123" \
-            -keypass "AmanMediaLove123" \
-            -dname "CN=Aman Media, OU=Mobile, O=Aman Media, L=Kabul, S=Kabul, C=AF"
-          
-          # په منډه د apksigner اوزار لاره معلومول
-          apksigner_path=$(find $ANDROID_HOME/build-tools -name apksigner | sort -V | tail -n 1)
-          echo "Using apksigner at: $apksigner_path"
-          
-          # په ریلیز فولډر کې د جوړ شوي ناامضا شوي APK فایل اتوماتیک موندل
-          unsigned_apk=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          if [ -z "$unsigned_apk" ]; then
-            echo "Error: Unsigned release APK not found!"
-            exit 1
-          fi
-          echo "Found unsigned release APK: $unsigned_apk"
-          
-          # رسماً لاسلیک کول (Signing)
-          $apksigner_path sign --ks release.keystore \
-            --ks-key-alias love-key \
-            -ks-pass pass:AmanMediaLove123 \
-            --key-pass pass:AmanMediaLove123 \
-            --out android/app/build/outputs/apk/release/app-release-signed.apk \
-            "$unsigned_apk"
-          
-          # د لاسلیک تاییدول (Verify Signature)
-          $apksigner_path verify android/app/build/outputs/apk/release/app-release-signed.apk
-          echo "Release APK successfully signed!"
-
-      - name: Upload Signed and Debug APKs
-        uses: actions/upload-artifact@v4
-        with:
-          name: Minedewa-App-APKs
-          path: |
-            android/app/build/outputs/apk/debug/app-debug.apk
-            android/app/build/outputs/apk/release/app-release-signed.apk
-            
