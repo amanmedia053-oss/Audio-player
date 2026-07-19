@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Post, ChannelInfo, PlaybackProgress, AppConfig } from './types';
 import { DEFAULT_APP_CONFIG } from './constants';
+import { getApiUrl } from './utils';
 import { Toolbar } from './components/Toolbar';
 import { NavigationBar, ActiveTab } from './components/NavigationBar';
 import { SidebarDrawer } from './components/SidebarDrawer';
@@ -101,8 +102,8 @@ export default function App() {
         setError(null);
 
         const [channelRes, postsRes] = await Promise.all([
-          fetch('/api/channel-info'),
-          fetch('/api/posts'),
+          fetch(getApiUrl('/api/channel-info')),
+          fetch(getApiUrl('/api/posts')),
         ]);
 
         if (!channelRes.ok || !postsRes.ok) {
@@ -266,7 +267,7 @@ export default function App() {
     if (!audioRef.current) return;
 
     const isSame = currentPost?.id === post.id;
-    const streamUrl = `/api/posts/${post.id}/stream`;
+    const streamUrl = getApiUrl(`/api/posts/${post.id}/stream`);
 
     if (!isSame) {
       // Pause any active playback safely first
