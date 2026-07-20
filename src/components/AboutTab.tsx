@@ -11,7 +11,13 @@ import {
   Heart,
   Sparkles,
   BookOpen,
-  Code
+  Code,
+  RefreshCw,
+  Cpu,
+  Terminal,
+  CheckCircle2,
+  AlertTriangle,
+  Globe
 } from 'lucide-react';
 
 interface AboutTabProps {
@@ -29,6 +35,55 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
     }
   });
   const [saveStatus, setSaveStatus] = React.useState('');
+
+  // Bandi Fetch States
+  const [fetching, setFetching] = React.useState(false);
+  const [fetchResult, setFetchResult] = React.useState<any>(null);
+  const [forceScrape, setForceScrape] = React.useState(true);
+  const [customChannel, setCustomChannel] = React.useState('afghan_bandi');
+  const [fetchLogsLocal, setFetchLogsLocal] = React.useState<string[]>([]);
+  const [fetchError, setFetchError] = React.useState('');
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('bandi_fetch_latest_data');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setFetchResult(parsed);
+        setFetchLogsLocal(parsed.logs || []);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+
+  const handleBandiFetch = async () => {
+    setFetching(true);
+    setFetchError('');
+    try {
+      const backend = serverUrl.trim() || defaultBackend;
+      const cleanChannel = customChannel.replace('@', '').trim();
+      const url = `${backend}/api/bandi-fetch?force=${forceScrape}&channel=${cleanChannel}`;
+      
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`د سرور خطا: حالت ${res.status} (سرور ځواب ورنکړ)`);
+      }
+      const data = await res.json();
+      if (data.success) {
+        setFetchResult(data);
+        setFetchLogsLocal(data.logs || []);
+        localStorage.setItem('bandi_fetch_latest_data', JSON.stringify(data));
+      } else {
+        throw new Error(data.error || "د سکریپ کولو پروسه ناکامه شوه.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setFetchError(err.message || "د سيسټم سره د اړیکې تېروتنه رامنځته شوه.");
+    } finally {
+      setFetching(false);
+    }
+  };
 
   const handleSaveServerUrl = () => {
     try {
@@ -237,7 +292,115 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
         </div>
       </div>
 
-      {/* 4. API Server Connection Settings */}
+      {/* 4. Bandi Fetch System Control Panel */}
+      <div className="bg-[#1c1b1f] border border-[#2d2c30] rounded-[24px] p-5 shadow-md space-y-4">
+        <h3 className="text-xs sm:text-sm font-bold text-[#e3e2e6] flex items-center justify-end gap-2 border-b border-[#2d2c30] pb-2">
+          <span>د بندي فیچ هوښیار لوډولو سيسټم</span>
+          <Cpu className="w-4.5 h-4.5 text-[#ffb900]" />
+        </h3>
+        
+        <p className="text-[11px] text-[#8e8d91] leading-relaxed text-right">
+          د بندي فیچ (Bandi Fetch) په مرسته تاسو کولی شئ په مستقیم او ژوندي ډول د ټلیګرام کانال څخه د غږیزو ناولونو او خپرونو وروستي معلومات او غږونه لوډ کړئ.
+        </p>
+
+        <div className="space-y-3 pt-1">
+          {/* Channel Input & Force Fetch Checkbox */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1 text-right">
+              <label className="text-[10px] text-[#8e8d91] block">د ټلیګرام کانال پته (ID)</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={customChannel}
+                  onChange={(e) => setCustomChannel(e.target.value)}
+                  dir="ltr"
+                  className="w-full pl-7 pr-3 py-2 bg-[#2d2c30]/50 border border-[#484649] rounded-xl text-xs text-[#e3e2e6] focus:outline-none focus:border-[#ffb900]"
+                  placeholder="afghan_bandi"
+                />
+                <span className="absolute left-3 top-2 text-xs text-[#8e8d91]">@</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-4">
+              <span className="text-[11px] text-[#e3e2e6]">ژوندی نوی سکریپ او لوډول (تازه کول)</span>
+              <input
+                type="checkbox"
+                checked={forceScrape}
+                onChange={(e) => setForceScrape(e.target.checked)}
+                className="w-4 h-4 rounded accent-[#ffb900] bg-[#2d2c30] border-[#484649]"
+              />
+            </div>
+          </div>
+
+          {/* Action Trigger Button */}
+          <button
+            onClick={handleBandiFetch}
+            disabled={fetching}
+            className={`w-full py-3 bg-[#ffb900] hover:bg-[#ffe082] disabled:bg-[#2d2c30] text-black disabled:text-[#8e8d91] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2`}
+          >
+            {fetching ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>د معلوماتو د لوډولو پروسه روانه ده...</span>
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                <span>معلومات او غږونه راوباسئ (لوډ کړئ)</span>
+              </>
+            )}
+          </button>
+
+          {/* Status Display */}
+          {fetchResult && (
+            <div className="bg-[#2d2c30]/30 rounded-xl p-3 border border-[#2d2c30] text-right space-y-1.5">
+              <div className="flex justify-between items-center text-[10px] sm:text-xs">
+                <span className="text-[#8e8d91] font-mono">{fetchResult.timestamp?.substring(11, 19)}</span>
+                <span className="text-[#e3e2e6] font-medium">وروستی بریالی لوډ:</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] sm:text-xs">
+                <span className="text-[#ffb900] font-mono">{fetchResult.posts?.length || 0} برخې</span>
+                <span className="text-[#e3e2e6] font-medium">موندل شوي فصلونه:</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px] sm:text-xs">
+                <span className="text-green-400 font-medium">{fetchResult.source || "عامه سيسټم"}</span>
+                <span className="text-[#e3e2e6] font-medium">د لوډولو سرچینه:</span>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {fetchError && (
+            <div className="bg-red-950/20 border border-red-900 rounded-xl p-3 text-right flex items-start gap-2 text-red-400">
+              <div className="flex-1 text-[10px] sm:text-xs">{fetchError}</div>
+              <AlertTriangle className="w-4 h-4 shrink-0 text-red-500 mt-0.5" />
+            </div>
+          )}
+
+          {/* Live Log Terminal */}
+          {fetchLogsLocal.length > 0 && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[#8e8d91] font-mono">Bandi Fetch Console v1.2</span>
+                <span className="text-[10px] text-[#e3e2e6] flex items-center gap-1">
+                  <span>لوګونه او د سیسټم راپور</span>
+                  <Terminal className="w-3.5 h-3.5 text-[#ffb900]" />
+                </span>
+              </div>
+              <div className="bg-black/90 border border-[#2d2c30] rounded-xl p-3 h-32 overflow-y-auto font-mono text-[9px] text-[#8e8d91] space-y-1 text-left select-all">
+                {fetchLogsLocal.map((log, idx) => (
+                  <div key={idx} className="whitespace-pre-wrap leading-tight">
+                    <span className="text-[#ffb900] mr-1.5">&gt;</span>
+                    {log}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 5. API Server Connection Settings */}
       <div className="bg-[#1c1b1f] border border-[#2d2c30] rounded-[24px] p-5 shadow-md space-y-3">
         <h3 className="text-xs sm:text-sm font-bold text-[#e3e2e6] flex items-center justify-end gap-2 border-b border-[#2d2c30] pb-2">
           <span>د سیسټم تنظیمات (سرور پیوستون)</span>
