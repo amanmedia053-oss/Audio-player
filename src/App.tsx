@@ -15,7 +15,7 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { SplashScreen } from './components/SplashScreen';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { SkeletonLoader } from './components/SkeletonLoader';
-import { AlertCircle, Copy, Check, RefreshCw } from 'lucide-react';
+import { AlertCircle, Copy, Check, RefreshCw, Server, Globe } from 'lucide-react';
 
 export default function App() {
   // Navigation State
@@ -34,6 +34,16 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [copied, setCopied] = useState(false);
+  
+  // Custom server settings state
+  const [customBackend, setCustomBackend] = useState(() => {
+    try {
+      return localStorage.getItem('pashto_novel_backend_url') || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Playback & Audio Control States
   const [currentPost, setCurrentPost] = useState<Post | null>(null);
@@ -720,6 +730,110 @@ export default function App() {
                           <span className="text-[10px] font-bold text-[#ffb4ab]/60 uppercase tracking-wider block">د خطا دقیق تخنیکي جزییات:</span>
                           <div dir="ltr" className="bg-[#140b0b] rounded-2xl p-4 border border-[#ffb4ab]/10 max-h-48 overflow-y-auto text-left font-mono text-[11px] leading-relaxed text-[#ffdad6]/90 select-text whitespace-pre-wrap break-all shadow-inner">
                             {error}
+                          </div>
+                        </div>
+
+                        {/* Custom Server Configuration panel for Android/Mobile WebViews or custom backends */}
+                        <div className="bg-[#1c0d0d] rounded-2xl p-4 border border-[#ffb4ab]/10 text-right space-y-3">
+                          <div className="flex items-center justify-between gap-2 border-b border-[#ffb4ab]/10 pb-2 flex-row-reverse">
+                            <span className="text-xs font-bold text-[#ffdad6] flex items-center gap-1.5 flex-row-reverse">
+                              <Server className="w-4 h-4 text-[#ffb4ab]" />
+                              <span>د سرور لاسي تنظیم (Server Configuration)</span>
+                            </span>
+                            <span className="text-[9px] bg-[#ffb4ab]/10 text-[#ffb4ab] px-2 py-0.5 rounded-full font-bold">
+                              {customBackend ? "لاسي تنظیم شوی" : "اصلي سټوډیو"}
+                            </span>
+                          </div>
+                          
+                          <p className="text-[11px] text-[#ffb4ab]/80 leading-relaxed">
+                            که غوښتنلیک ستاسو په ټلیفون کې کار نه کوي، تاسو کولی شئ دلته د خپل ځایي کمپیوټر IP پته (لکه <code className="bg-[#241313] px-1 py-0.5 rounded font-mono text-[10px] text-[#ffdad6]">http://192.168.1.100:3000</code>) یا بل سرور ولیکئ ترڅو ورسره وصل شي:
+                          </p>
+
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              dir="ltr"
+                              value={customBackend}
+                              onChange={(e) => setCustomBackend(e.target.value)}
+                              placeholder="https://example.com or http://192.168.1.5:3000"
+                              className="w-full bg-[#140b0b] text-[#ffdad6] border border-[#ffb4ab]/20 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-[#ffb4ab] focus:ring-1 focus:ring-[#ffb4ab] transition-all text-left"
+                            />
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2 pt-1 justify-end">
+                            {customBackend && (
+                              <button
+                                onClick={() => {
+                                  try {
+                                    localStorage.removeItem('pashto_novel_backend_url');
+                                    setCustomBackend('');
+                                    setSaveSuccess(true);
+                                    setTimeout(() => setSaveSuccess(false), 2000);
+                                    // Trigger reload
+                                    setTimeout(() => fetchData(), 200);
+                                  } catch (e) {
+                                    console.error(e);
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-[#40000a] hover:bg-[#5c0012] text-[#ffdad6] font-bold text-[10px] rounded-lg transition-all active:scale-95"
+                              >
+                                اصلي سرور ته پرېښودل (Reset to Default)
+                              </button>
+                            )}
+                            
+                            <button
+                              onClick={() => {
+                                try {
+                                  const trimmed = customBackend.trim();
+                                  if (trimmed) {
+                                    localStorage.setItem('pashto_novel_backend_url', trimmed);
+                                    setSaveSuccess(true);
+                                    setTimeout(() => setSaveSuccess(false), 2000);
+                                    // Trigger reload
+                                    setTimeout(() => fetchData(), 200);
+                                  } else {
+                                    localStorage.removeItem('pashto_novel_backend_url');
+                                    setSaveSuccess(true);
+                                    setTimeout(() => setSaveSuccess(false), 2000);
+                                    setTimeout(() => fetchData(), 200);
+                                  }
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-[#ffb4ab] hover:bg-[#ffdad6] text-[#690005] font-bold text-[10px] rounded-lg transition-all flex items-center gap-1 active:scale-95"
+                            >
+                              {saveSuccess ? (
+                                <>
+                                  <Check className="w-3 h-3" />
+                                  <span>خوندي شو! (Saved)</span>
+                                </>
+                              ) : (
+                                <span>سرور خوندي کول (Save Server)</span>
+                              )}
+                            </button>
+                          </div>
+                          
+                          {/* Common presets helper */}
+                          <div className="pt-1 border-t border-[#ffb4ab]/5 flex flex-wrap items-center gap-1.5 justify-start text-[10px] text-[#ffb4ab]/60 flex-row-reverse">
+                            <span className="font-bold">ځایي وړاندیزونه (Presets):</span>
+                            <button
+                              onClick={() => {
+                                setCustomBackend('http://10.0.2.2:3000');
+                              }}
+                              className="underline hover:text-[#ffdad6] font-mono"
+                            >
+                              10.0.2.2:3000 (Android Emulator)
+                            </button>
+                            <span className="text-[#ffb4ab]/30">•</span>
+                            <button
+                              onClick={() => {
+                                setCustomBackend('http://localhost:3000');
+                              }}
+                              className="underline hover:text-[#ffdad6] font-mono"
+                            >
+                              localhost:3000
+                            </button>
                           </div>
                         </div>
 
