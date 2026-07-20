@@ -11,20 +11,20 @@ export function getApiUrl(path: string): string {
 
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-  // Check if we are running in a standard web browser (not capacitor:// and not file://)
-  const isWeb = typeof window !== 'undefined' && 
-                window.location.protocol !== 'capacitor:' && 
-                window.location.protocol !== 'file:' && 
-                !window.location.hostname.includes('localhost');
-
-  if (isWeb) {
-    // Save current origin as the latest working backend url
-    try {
-      localStorage.setItem('pashto_novel_backend_url', window.location.origin);
-    } catch (e) {
-      // ignore
+  // If we are in the browser, always default to relative paths or the current origin
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol;
+    const isNative = protocol === 'capacitor:' || protocol === 'file:';
+    
+    if (!isNative) {
+      // It's a real web app running on a server (production, local, or dev server)
+      try {
+        localStorage.setItem('pashto_novel_backend_url', window.location.origin);
+      } catch (e) {
+        // ignore
+      }
+      return `${window.location.origin}${cleanPath}`;
     }
-    return `${window.location.origin}${cleanPath}`;
   }
 
   // Native / Capacitor context

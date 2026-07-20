@@ -775,7 +775,7 @@ export default function App() {
                   )}
 
                   {/* Feed of Audio Novel Posts */}
-                  {!loading && (
+                  {!loading && !error && (
                     <PostList
                       posts={posts}
                       currentPlayingPost={currentPost}
