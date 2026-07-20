@@ -11,23 +11,37 @@ export function getApiUrl(path: string): string {
 
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-  // If we are in the browser, always default to relative paths or the current origin
+  // Fallback to the production deployed URL of this specific workspace
+  const defaultBackend = 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+
+  // If we are in the browser, check if it's a real web app or a mobile webview
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol;
-    const isNative = protocol === 'capacitor:' || protocol === 'file:';
+    const hostname = window.location.hostname;
+    const ua = window.navigator.userAgent || '';
     
-    if (!isNative) {
-      // It's a real web app running on a server (production, local, or dev server)
-      try {
-        localStorage.setItem('pashto_novel_backend_url', window.location.origin);
-      } catch (e) {
-        // ignore
+    const isNative = protocol === 'capacitor:' || protocol === 'file:';
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    // If we are on a mobile device/webview, localhost is likely a local webview assets server
+    const isMobileOrWebView = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|wv|WebView/i.test(ua);
+    
+    const treatAsNative = isNative || (isLocalhost && isMobileOrWebView);
+
+    if (!treatAsNative) {
+      // It's a real web app running on a server (production, local, or dev server on PC)
+      // Save current origin as the latest working backend URL ONLY if it's not localhost
+      if (!isLocalhost) {
+        try {
+          localStorage.setItem('pashto_novel_backend_url', window.location.origin);
+        } catch (e) {
+          // ignore
+        }
       }
       return `${window.location.origin}${cleanPath}`;
     }
   }
 
-  // Native / Capacitor context
+  // Native / WebView context
   let savedUrl = '';
   try {
     savedUrl = localStorage.getItem('pashto_novel_backend_url') || '';
@@ -35,11 +49,19 @@ export function getApiUrl(path: string): string {
     // ignore
   }
 
+  // If savedUrl contains localhost or 127.0.0.1, ignore/clear it to prevent getting stuck in WebView
+  if (savedUrl && (savedUrl.includes('localhost') || savedUrl.includes('127.0.0.1'))) {
+    try {
+      localStorage.removeItem('pashto_novel_backend_url');
+    } catch (e) {
+      // ignore
+    }
+    savedUrl = '';
+  }
+
   if (savedUrl && (savedUrl.startsWith('http://') || savedUrl.startsWith('https://'))) {
     return `${savedUrl}${cleanPath}`;
   }
 
-  // Fallback to the production deployed URL of this specific workspace
-  const defaultBackend = 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
   return `${defaultBackend}${cleanPath}`;
 }
