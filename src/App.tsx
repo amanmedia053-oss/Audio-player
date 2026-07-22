@@ -121,6 +121,40 @@ export default function App() {
     }
   };
 
+  const smartFetch = async (endpointPath: string) => {
+    const primaryUrl = getApiUrl(endpointPath);
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      const res = await fetch(primaryUrl, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) return res;
+      throw new Error(`د سرور خطا (Status: ${res.status})`);
+    } catch (primaryErr: any) {
+      // If a custom saved backend URL was used and failed or timed out, attempt relative fallback
+      const savedBackend = localStorage.getItem('pashto_novel_backend_url');
+      if (savedBackend && typeof window !== 'undefined' && savedBackend !== window.location.origin) {
+        console.warn('Custom backend failed, trying relative fallback...', primaryErr);
+        const fallbackUrl = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 6000);
+          const res = await fetch(fallbackUrl, { signal: controller.signal });
+          clearTimeout(timer);
+          if (res.ok) {
+            // Fallback succeeded! Clean up bad saved URL
+            localStorage.removeItem('pashto_novel_backend_url');
+            setCustomBackend('');
+            return res;
+          }
+        } catch (fallbackErr) {
+          // Ignore and throw primary error
+        }
+      }
+      throw primaryErr;
+    }
+  };
+
   const fetchData = async (force: boolean = false) => {
     try {
       setLoading(true);
@@ -128,8 +162,8 @@ export default function App() {
 
       const forceParam = force ? '?force=true' : '';
       const [channelRes, postsRes] = await Promise.all([
-        fetch(getApiUrl(`/api/channel-info${forceParam}`)),
-        fetch(getApiUrl(`/api/posts${forceParam}`)),
+        smartFetch(`/api/channel-info${forceParam}`),
+        smartFetch(`/api/posts${forceParam}`),
       ]);
 
       const channelData = (await safeJsonParse(channelRes, 'چینل معلومات')) as ChannelInfo;
