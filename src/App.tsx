@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Post, ChannelInfo, PlaybackProgress, AppConfig } from './types';
-import { DEFAULT_APP_CONFIG } from './constants';
+import { DEFAULT_APP_CONFIG, FALLBACK_CHANNEL_INFO, FALLBACK_POSTS } from './constants';
 import { getApiUrl } from './utils';
 import { Toolbar } from './components/Toolbar';
 import { NavigationBar, ActiveTab } from './components/NavigationBar';
@@ -99,14 +99,15 @@ export default function App() {
     return { filteredPosts: filtered, extractedConfig: foundConfig };
   };
 
-  const fetchData = async () => {
+  const fetchData = async (force: boolean = false) => {
     try {
       setLoading(true);
       setError(null);
 
+      const forceParam = force ? '?force=true' : '';
       const [channelRes, postsRes] = await Promise.all([
-        fetch(getApiUrl('/api/channel-info')),
-        fetch(getApiUrl('/api/posts')),
+        fetch(getApiUrl(`/api/channel-info${forceParam}`)),
+        fetch(getApiUrl(`/api/posts${forceParam}`)),
       ]);
 
       if (!channelRes.ok || !postsRes.ok) {
@@ -128,9 +129,14 @@ export default function App() {
           setPosts(filteredPosts);
           setAppConfig(extractedConfig);
           setChannelInfo(JSON.parse(localChannel));
-          setLoading(false);
-          return;
+        } else {
+          const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
+          setPosts(filteredPosts);
+          setAppConfig(extractedConfig);
+          setChannelInfo(FALLBACK_CHANNEL_INFO);
         }
+        setLoading(false);
+        return;
       } else {
         // Keep a fresh backup in localStorage
         localStorage.setItem('pashto_cached_posts', JSON.stringify(postsData));
@@ -154,8 +160,28 @@ export default function App() {
       const detailInfo = `خطا (Error Type): ${errName}\nتفصیل (Message): ${errMsg}\nد چینل لینک (Channel API): ${channelUrl}\nد کتابونو لینک (Posts API): ${postsUrl}\nټاکل شوی د سرور ادرس (Active Backend URL): ${savedServer}\nوخت (Timestamp): ${new Date().toISOString()}\nمجموعه سیستم (User Agent): ${navigator.userAgent}`;
       setError(detailInfo);
 
-      setPosts([]);
-      setChannelInfo(null);
+      // Load cached or fallback data so the user can still use the audio app
+      const localPosts = localStorage.getItem('pashto_cached_posts');
+      const localChannel = localStorage.getItem('pashto_cached_channel');
+      if (localPosts && localChannel) {
+        try {
+          const rawLocalPosts = JSON.parse(localPosts) as Post[];
+          const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
+          setPosts(filteredPosts);
+          setAppConfig(extractedConfig);
+          setChannelInfo(JSON.parse(localChannel));
+        } catch (e) {
+          const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
+          setPosts(filteredPosts);
+          setAppConfig(extractedConfig);
+          setChannelInfo(FALLBACK_CHANNEL_INFO);
+        }
+      } else {
+        const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
+        setPosts(filteredPosts);
+        setAppConfig(extractedConfig);
+        setChannelInfo(FALLBACK_CHANNEL_INFO);
+      }
       setIsOnline(false);
     } finally {
       setLoading(false);
@@ -900,6 +926,8 @@ export default function App() {
                       onPausePost={handlePausePost}
                       onToggleFavorite={handleToggleFavorite}
                       appConfig={appConfig}
+                      onRefresh={() => fetchData(true)}
+                      isRefreshing={loading}
                     />
                   )}
                 </div>
