@@ -33,10 +33,15 @@ interface AboutTabProps {
 }
 
 export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) => {
-  const defaultBackend = 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+  const defaultBackend = 'https://ais-dev-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
   const [serverUrl, setServerUrl] = React.useState(() => {
     try {
-      return localStorage.getItem('pashto_novel_backend_url') || defaultBackend;
+      const stored = localStorage.getItem('pashto_novel_backend_url');
+      if (stored && (stored.includes('localhost') || stored.includes('ais-pre-'))) {
+        localStorage.removeItem('pashto_novel_backend_url');
+        return defaultBackend;
+      }
+      return stored || defaultBackend;
     } catch (e) {
       return defaultBackend;
     }
@@ -57,7 +62,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
   const [diagReportText, setDiagReportText] = React.useState<string>(() => {
     const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
     const origin = typeof window !== 'undefined' ? window.location.origin : 'N/A';
-    const backend = (typeof localStorage !== 'undefined' && localStorage.getItem('pashto_novel_backend_url')) || 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+    const backend = (typeof localStorage !== 'undefined' && localStorage.getItem('pashto_novel_backend_url')) || 'https://ais-dev-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
     
     return `==========================================
 د افغان بانډي د انټرنیټ او شبکې تشخیصی راپور
@@ -65,7 +70,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
 ۱. د وسیلې آنلاین حالت: ${isOnline ? 'وصل دی (Online)' : 'قطع دی (Offline)'}
 ۲. موجود خلاص شوی چاپیریال (Origin): ${origin}
 ۳. فعال او کارول کیدونکی سرور: ${backend}
-۴. د کلاوډ اصلي ملاتړی ادرس: https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app
+۴. د کلاوډ اصلي ملاتړی ادرس: https://ais-dev-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app
 
 ------------------------------------------
 د اپلیکیشن د انټرنیټ د ستونزو مکمل تخنیکي تحلیل:
@@ -78,7 +83,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
 
 ج) دقیق حل (Solution):
 په لاندې بکس کې د سرور ادرس پر ځای همدا پته داخله کړه:
-https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app
+https://ais-dev-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app
 
 ==========================================`;
   });
