@@ -72,7 +72,7 @@ async function startServer() {
     try {
       addLog(`د رسمي ټلیګرام بوټ اتصال هڅه کیږي...`);
       const url = `https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${cleanId}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(3500) });
       if (res.ok) {
         const data = await res.json() as any;
         if (data.ok && data.result) {
@@ -83,7 +83,7 @@ async function startServer() {
           if (chat.photo && chat.photo.big_file_id) {
             addLog(`د رسمي پروفایل انځور کوډ وموندل شو، د فایل چمتو کول...`);
             const fileUrl = `https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${chat.photo.big_file_id}`;
-            const fileRes = await fetch(fileUrl);
+            const fileRes = await fetch(fileUrl, { signal: AbortSignal.timeout(3500) });
             if (fileRes.ok) {
               const fileData = await fileRes.json() as any;
               if (fileData.ok && fileData.result && fileData.result.file_path) {
@@ -113,7 +113,8 @@ async function startServer() {
         const scrapeRes = await fetch(scrapeUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-          }
+          },
+          signal: AbortSignal.timeout(3500)
         });
         if (scrapeRes.ok) {
           const html = await scrapeRes.text();
@@ -178,7 +179,8 @@ async function startServer() {
       const res = await fetch(scrapeUrl, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
+        },
+        signal: AbortSignal.timeout(3500)
       });
 
       if (res.ok) {
