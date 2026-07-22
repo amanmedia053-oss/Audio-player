@@ -163,17 +163,17 @@ async function startServer() {
     }
 
     if (!parsedChannel) {
-      addLog(`د ټلیګرام ارتباطات رد شول. د غونډ غاړې اصلي معلومات لوډیږي...`);
+      addLog(`د ټلیګرام معلومات ونه موندل شول.`);
       parsedChannel = {
         name: "يو افغان بندي په ګوانتانامو کې",
-        description: "د غوره پښتو داستانونو، لنډو کیسو، پند لرونکو روایتونو او تاریخي رنګینو غږیزو ناولونو عالي ټولګه.",
+        description: "د غوره پښتو داستانونو او غږیزو کتابونو مرکز.",
         avatar_url: "https://images.unsplash.com/photo-1474932430478-367db26836c1?w=250&h=250&fit=crop"
       };
     }
 
     // 2. Fetch and Parse Posts
     try {
-      addLog(`د غږیزو کتابونو، خپرونو او داستانونو لوډول پیل شول...`);
+      addLog(`د غږیزو کتابونو او خپرونو لوډول پیل شول...`);
       const scrapeUrl = `https://t.me/s/${username}`;
       const res = await fetch(scrapeUrl, {
         headers: {
@@ -184,31 +184,17 @@ async function startServer() {
       if (res.ok) {
         const html = await res.text();
         const $ = cheerio.load(html);
-        addLog(`د خپرونو خام سند (HTML) ترلاسه شو. د عناصرو په نښه کول او جلا کول...`);
-
-        let messageElements = $('.tgme_widget_message');
-        if (messageElements.length === 0) {
-          messageElements = $('.tgme_widget_message_wrap');
-        }
-
-        addLog(`په پاڼه کې موندل شوي پیغامونه: ${messageElements.length}`);
-
-        messageElements.each((i, el) => {
+        addLog(`د خپرونو ترلاسه شوې پاڼه تجزیه کېږي...`);
+        
+        $('.tgme_widget_message').each((i, el) => {
           const $el = $(el);
-          const href = $el.find('.tgme_widget_message_date').attr('href') || '';
-          const idMatch = href.match(/\/(\d+)$/);
-          const id = idMatch ? `tg-${idMatch[1]}` : `scraped-${i}`;
-
-          let text = $el.find('.tgme_widget_message_text').text().trim();
-          if (!text) {
-            text = $el.find('.tgme_widget_message_info').text().trim();
-          }
-
-          const hasVoice = $el.find('.tgme_widget_message_voice').length > 0;
-          const hasDoc = $el.find('.tgme_widget_message_document').length > 0;
+          const id = $el.attr('data-post') || `post-${i}`;
+          const text = $el.find('.tgme_widget_message_text').text().trim();
+          const hasVoice = $el.find('.tgme_widget_message_voice, .tgme_widget_message_voice_player, audio').length > 0;
+          const hasDoc = $el.find('.tgme_widget_message_document, .tgme_widget_message_document_icon').length > 0;
           const isConfig = text.includes('{') && text.includes('}');
           
-          if (hasVoice || hasDoc || text.includes('ناول') || text.includes('کیسه') || isConfig) {
+          if (text || hasVoice || hasDoc || isConfig) {
             let duration = "12:15";
             const durText = $el.find('.tgme_widget_message_voice_duration').text().trim() || 
                             $el.find('.tgme_widget_message_document_info').text().trim();
@@ -230,32 +216,15 @@ async function startServer() {
               }
             }
 
-            if (audioUrl && audioUrl.startsWith('/')) {
-              audioUrl = `https://t.me${audioUrl}`;
+            if (!audioUrl) {
+              const docTitleLink = $el.find('a.tgme_widget_message_document_title, a.tgme_widget_message_document, a[href*=".mp3"], a[href*=".m4a"], a[href*=".ogg"]');
+              if (docTitleLink.length > 0) {
+                audioUrl = docTitleLink.attr('href') || docTitleLink.attr('data-src') || "";
+              }
             }
 
-            const isDirectStream = audioUrl && (
-              audioUrl.includes('keep') || 
-              audioUrl.includes('file') || 
-              audioUrl.includes('/stream') || 
-              audioUrl.match(/\.(mp3|ogg|wav|m4a|aac)/i)
-            );
-
-            if (!isDirectStream && !isConfig) {
-              const index = i % 10;
-              const fallbackAudios = [
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3",
-                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3"
-              ];
-              audioUrl = fallbackAudios[index];
+            if (audioUrl && audioUrl.startsWith('/')) {
+              audioUrl = `https://t.me${audioUrl}`;
             }
 
             const groupId = $el.attr('data-post-grouped') || $el.closest('.tgme_widget_message').attr('data-post-grouped');
@@ -325,82 +294,46 @@ async function startServer() {
           }
         });
       } else {
-        addLog(`د خپرونو ترلاسه کول رد شول (Status: ${res.status}). د لوړ کیفیت لرونکو پخوانیو معلوماتو د کاپي کولو پروسه پیل شوه...`);
+        addLog(`د خپرونو ترلاسه کول رد شول (Status: ${res.status}).`);
       }
     } catch (err: any) {
       addLog(`د خپرونو لوډولو تېروتنه: ${err.message || err}`);
     }
 
     if (parsedPosts.length === 0) {
-      addLog(`د ټلیګرام څخه نوي پیغامونه ترلاسه نشول. د سيسټم د فایډلیټي مېموري ناولونو بارول...`);
+      addLog(`په ټلیګرام کې نوي پیغامونه مستقیم ونه موندل شول. د رسمي افغان بانډي د ملاتړ غږیز لیست روښانه کول...`);
       parsedPosts = [
         {
-          id: "afg-config",
-          text: JSON.stringify({
-            tab_home: 'اصلي پاڼه',
-            about_creator_name: 'عبيدالله غفاري',
-            about_creator_role: 'د افغان بانډي غږیز کتابتون رسمي لوستونکی او پرمخ وړونکی',
-            about_intro_text: 'موږ د زړه له کومې ستاسو لپاره د پښتو ادبیاتو په تېره بیا د لنډو کیسو، پند لرونکو داستانونو او غوره تاریخي ناولونو د ثبتولو هڅه کوو. زموږ موخه پښتو غږیزو کتابونو ته د چټک او لوړ کیفیت لاسرسی دی.',
-            onboarding_step1_badge: 'بې ساري هرکلى',
-            onboarding_step1_title: 'رسمي غږیز کتابتون ته ښه راغلاست! 🎧',
-            onboarding_step1_desc: 'دلته به تاسو د پښتو غوره ناولونه او غږیز داستانونه په عالي او رنګین سټوډیویي غږ سره ومومئ.',
-            onboarding_step2_badge: 'سمارټ افلاین ثبتونه',
-            onboarding_step2_title: 'ستاسو د اورېدو پرمختګ خوندي کېږي 💾',
-            onboarding_step2_desc: 'ستاسو د اورېدو پروسه په اوتومات ډول په هر ګام کې ثبتیږي نو په اسانۍ سره یې د پاتې برخې څخه پیلولی شئ.',
-            onboarding_step3_badge: 'خوښ شوي ناولونه',
-            onboarding_step3_title: 'زما د خوښو کڅوړه ❤️',
-            onboarding_step3_desc: 'کوم فصلونه چې ستاسو ډېر خوښېږي په نښه کړئ ترڅو په هر وخت کې ورته اسانه او ګړندی لاسرسی ولرئ.'
-          }, null, 2),
-          audio_url: "",
-          duration: "0:00",
-          date: "2026-07-17T12:00:00Z",
-          images: [
-            "https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80",
-            "https://images.unsplash.com/photo-1518495973542-4542c06a5843?w=1000&q=80",
-            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=250&h=250&fit=crop"
-          ]
-        },
-        {
           id: "afg-1",
-          text: "د افغان بانډي غږیز ناول - د مستانه او همراز د جلاوطنۍ داستان: لومړی څپرکی - په دې برخه کې د دوو مینو زړونو ناڅاپي بېلتون او د کلي په رنګین ماښام کې د وروستي لید کاته جزییات واورئ.",
+          text: "د افغان بندي غږیز ناول - لومړی فصل: د ګوانتانامو له تورې زندان څخه د زړه دردونکي کیسې پیل، ظالمانه تحقیقات او د نوي مبارزې روحیه.",
           audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-          duration: "12:15",
-          date: "2026-07-16T12:00:00Z"
+          duration: "18:20",
+          date: new Date().toISOString(),
+          images: ["https://images.unsplash.com/photo-1474932430478-367db26836c1?w=600&h=400&fit=crop"]
         },
         {
           id: "afg-2",
-          text: "د افغان بانډي غږیز ناول - د غره په لمنو کې د سولې غږ: دویم څپرکی - په دې غږیزه برخه کې د کوچي احمد د خیمو او مېړانې داستان راسپړل کېږي چې څنګه یې خپل ایل د سختو توپانونو څخه وژغوره.",
+          text: "د افغان بندي غږیز ناول - دویم فصل: د بګرام پنجرې او د زړو بندي ملګرو داستانونه، ترخې خاطرې او په صابر زړه د وطن یادونه.",
           audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
           duration: "14:40",
-          date: "2026-07-16T11:30:00Z"
+          date: new Date(Date.now() - 86400000).toISOString(),
+          images: ["https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&h=400&fit=crop"]
         },
         {
           id: "afg-3",
-          text: "د افغان بانډي غږیز ناول - د پټو اوښکو مینه: درېیم څپرکی - د یوې مینه ناکې نجلۍ د زړه درد او په تور تيارو شپو کې د خپل تري تم شوي همسفر د راستنېدو په هيله د دعاګانو او ډاډ زړه راښکونکی غږ.",
+          text: "د افغان بندي غږیز ناول - درېیم فصل: د پټو اوښکو مینه او د تورې شپې الهامونه، د برخلیک ستونزې او د هیلې څرک.",
           audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-          duration: "09:55",
-          date: "2026-07-16T11:00:00Z"
+          duration: "12:15",
+          date: new Date(Date.now() - 172800000).toISOString(),
+          images: ["https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&h=400&fit=crop"]
         },
         {
           id: "afg-4",
-          text: "د افغان بانډي غږیز ناول - د کاروان زنګونه او د هجران ویر: څلورم څپرکی - د پېښور او کابل ترمنځ د زړو موټرو په اوږده سفر کې د زړونو د تبادلې او د ژوند د نویو ملګرتیاوو پيل.",
+          text: "د افغان بندي غږیز ناول - څلورم فصل: د ازادۍ د کاروان را رسیدل او د خپلو مجاهدینو ملګرو سره لیدنه او ملګرتیا.",
           audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-          duration: "11:22",
-          date: "2026-07-16T10:30:00Z"
-        },
-        {
-          id: "afg-5",
-          text: "د افغان بانډي غږیز ناول - د سپېده داغ رڼا او د کلي اختر: پنځم څپرکی - وروسته له اوږدو کلونو څخه د ټولو جلا شوو دوستانو بېرته یوځای کېدل او د نوي پښتون نسل د بریالیتوب غږیز تمثیل.",
-          audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
-          duration: "16:05",
-          date: "2026-07-16T10:00:00Z"
-        },
-        {
-          id: "afg-6",
-          text: "د افغان بانډي غږیز ناول - د برخلیک کرښې: شپږم څپرکی - د دې په زړه پورې غږیز ناول وروستۍ برخه، چې پکې د زړونو مینه رښتینې کچې ته رسېږي او د نوې هیلې څرک روښانه کېږي.",
-          audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3",
-          duration: "15:18",
-          date: "2026-07-16T09:30:00Z"
+          duration: "15:10",
+          date: new Date(Date.now() - 259200000).toISOString(),
+          images: ["https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=600&h=400&fit=crop"]
         }
       ];
     }
@@ -423,9 +356,9 @@ async function startServer() {
   }
 
   // Helper wrappers for existing APIs
-  async function getChannelInfo() {
+  async function getChannelInfo(force: boolean = false) {
     try {
-      const res = await triggerBandiFetch(false);
+      const res = await triggerBandiFetch(force);
       return res.channel;
     } catch (e) {
       return {
@@ -436,9 +369,9 @@ async function startServer() {
     }
   }
 
-  async function getTelegramPosts() {
+  async function getTelegramPosts(force: boolean = false) {
     try {
-      const res = await triggerBandiFetch(false);
+      const res = await triggerBandiFetch(force);
       return res.posts;
     } catch (e) {
       return [];
@@ -447,12 +380,14 @@ async function startServer() {
 
   // API endpoints
   app.get('/api/channel-info', async (req, res) => {
-    const info = await getChannelInfo();
+    const force = req.query.force === 'true';
+    const info = await getChannelInfo(force);
     res.json(info);
   });
 
   app.get('/api/posts', async (req, res) => {
-    const postsList = await getTelegramPosts();
+    const force = req.query.force === 'true';
+    const postsList = await getTelegramPosts(force);
     res.json(postsList);
   });
 
@@ -499,12 +434,16 @@ async function startServer() {
   });
 
   app.get('/api/posts/:id/stream', async (req, res) => {
-    const postsList = await getTelegramPosts();
-    const post = postsList.find(p => p.id === req.params.id);
-    if (post) {
-      res.redirect(post.audio_url);
-    } else {
-      res.status(404).json({ error: "غږیز فایل ونه موندل شو." });
+    try {
+      const postsList = await getTelegramPosts();
+      const post = postsList.find(p => p.id === req.params.id);
+      if (post && post.audio_url && post.audio_url.trim().length > 0) {
+        return res.redirect(post.audio_url);
+      } else {
+        return res.status(404).json({ error: "غږیز فایل ونه موندل شو یا آډیو لینک شتون نلري." });
+      }
+    } catch (e: any) {
+      return res.status(500).json({ error: "د آډیو خپرولو پر مهال تېروتنه رامنځته شوه." });
     }
   });
 
