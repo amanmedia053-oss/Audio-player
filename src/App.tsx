@@ -99,6 +99,22 @@ export default function App() {
     return { filteredPosts: filtered, extractedConfig: foundConfig };
   };
 
+  const safeJsonParse = async (res: Response, name: string) => {
+    const contentType = res.headers.get('content-type') || '';
+    if (!res.ok) {
+      throw new Error(`د ${name} ادرس ځواب نه ورکوي (Status: ${res.status} ${res.statusText})`);
+    }
+    const text = await res.text();
+    if (!text || text.trim().startsWith('<') || contentType.includes('text/html')) {
+      throw new Error(`د ${name} ادرس د API پر ځای د HTML ويب پاڼه راستوله (HTML document received).`);
+    }
+    try {
+      return JSON.parse(text);
+    } catch (e: any) {
+      throw new Error(`د ${name} ځواب بې برخليکه معتبر JSON نه و: ${e.message}`);
+    }
+  };
+
   const fetchData = async (force: boolean = false) => {
     try {
       setLoading(true);
@@ -110,12 +126,8 @@ export default function App() {
         fetch(getApiUrl(`/api/posts${forceParam}`)),
       ]);
 
-      if (!channelRes.ok || !postsRes.ok) {
-        throw new Error(`د سرور خطا: د چینل ځواب حالت: ${channelRes.status} (${channelRes.statusText})، د خپرونو ځواب حالت: ${postsRes.status} (${postsRes.statusText})`);
-      }
-
-      const channelData = (await channelRes.json()) as ChannelInfo;
-      const postsData = (await postsRes.json()) as Post[];
+      const channelData = (await safeJsonParse(channelRes, 'چینل معلومات')) as ChannelInfo;
+      const postsData = (await safeJsonParse(postsRes, 'کتابونه/فصلونه')) as Post[];
 
       // Check if the service worker returned the offline fallback json
       if ((channelData as any).isOffline || (postsData as any).isOffline) {
@@ -915,7 +927,7 @@ export default function App() {
                   )}
 
                   {/* Feed of Audio Novel Posts */}
-                  {!loading && !error && (
+                  {!loading && posts.length > 0 && (
                     <PostList
                       posts={posts}
                       currentPlayingPost={currentPost}
