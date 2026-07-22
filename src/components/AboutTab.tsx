@@ -17,7 +17,14 @@ import {
   Terminal,
   CheckCircle2,
   AlertTriangle,
-  Globe
+  Globe,
+  Copy,
+  Check,
+  Activity,
+  Wifi,
+  WifiOff,
+  FileText,
+  ShieldAlert
 } from 'lucide-react';
 
 interface AboutTabProps {
@@ -43,6 +50,133 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
   const [customChannel, setCustomChannel] = React.useState('afghan_bandi');
   const [fetchLogsLocal, setFetchLogsLocal] = React.useState<string[]>([]);
   const [fetchError, setFetchError] = React.useState('');
+
+  // Diagnostic Report States
+  const [diagTesting, setDiagTesting] = React.useState(false);
+  const [diagCopied, setDiagCopied] = React.useState(false);
+  const [diagReportText, setDiagReportText] = React.useState<string>(() => {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'N/A';
+    const backend = (typeof localStorage !== 'undefined' && localStorage.getItem('pashto_novel_backend_url')) || 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+    
+    return `==========================================
+د افغان بانډي د انټرنیټ او شبکې تشخیصی راپور
+==========================================
+۱. د وسیلې آنلاین حالت: ${isOnline ? 'وصل دی (Online)' : 'قطع دی (Offline)'}
+۲. موجود خلاص شوی چاپیریال (Origin): ${origin}
+۳. فعال او کارول کیدونکی سرور: ${backend}
+۴. د کلاوډ اصلي ملاتړی ادرس: https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app
+
+------------------------------------------
+د اپلیکیشن د انټرنیټ د ستونزو مکمل تخنیکي تحلیل:
+------------------------------------------
+الف) د ګرځنده تلیفون (APK) د لومړنۍ خلاصولو مشکل:
+کله چې غوښتنلیک د APK فایل په توګه په موبایل کې نصب شي، په موبایل کې دننه سرور (Node.js/localhost) وجود نلري، نو له همدې امله نسبتي پیوستون (/api/posts) افلاین حالت ښیې.
+
+ب) د ټلیګرام او CORS فلټر او بلاک کول:
+ټلیګرام مستقیم د موبایل له وب ویو (WebView) او براوزر څخه د ډیټا رااېستلو مخه نیسي (CORS Blocked)، له همدې امله دا اپلیکیشن خپل پټ کلاوډ سرور کاروي.
+
+ج) دقیق حل (Solution):
+په لاندې بکس کې د سرور ادرس پر ځای همدا پته داخله کړه:
+https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app
+
+==========================================`;
+  });
+
+  const handleRunDiagnostics = async () => {
+    setDiagTesting(true);
+    const logs: string[] = [];
+    const startTime = Date.now();
+    const backend = serverUrl.trim() || defaultBackend;
+
+    logs.push(`[${new Date().toLocaleTimeString()}] د شبکې او سرور د راپور ازموینه پیل شوه...`);
+    logs.push(`انټرنیټ سره پیوستون: ${navigator.onLine ? 'تایید شو (Online)' : 'قطع دی (Offline)'}`);
+    logs.push(`ستاسو اپلیکیشن چاپیریال: ${window.location.href}`);
+    logs.push(`د سرور ثبت شوې پته: ${backend}`);
+
+    let apiStatus = 'نامعلومه';
+    let bandiStatus = 'نامعلومه';
+    let latency = '0ms';
+
+    try {
+      logs.push(`د /api/channel-info سرور ته د پیوستون هڅه...`);
+      const res = await fetch(`${backend}/api/channel-info`, { signal: AbortSignal.timeout(6000) });
+      latency = `${Date.now() - startTime}ms`;
+      if (res.ok) {
+        apiStatus = `۲۰۰ بریالی (OK) - ځنډ: ${latency}`;
+        logs.push(`د سرور ځواب: 200 OK (${latency})`);
+      } else {
+        apiStatus = `د سرور خطا کد: ${res.status}`;
+        logs.push(`د سرور ځواب تېروتنه: ${res.status}`);
+      }
+    } catch (err: any) {
+      apiStatus = `د پیوستون تېروتنه (${err.message || 'Timeout / Network Error'})`;
+      logs.push(`تېروتنه: ${err.message || 'سرور ځواب ورنکړ'}`);
+    }
+
+    try {
+      logs.push(`د بندي فیچ سکرېپر راوباسل شو...`);
+      const bandiRes = await fetch(`${backend}/api/bandi-fetch?channel=${customChannel}`, { signal: AbortSignal.timeout(8000) });
+      if (bandiRes.ok) {
+        bandiStatus = '۲۰۰ بریالی (Bandi Scraper Active)';
+        logs.push(`د بانډي فیچ سیسټم په بشپړ ډول روغ دی.`);
+      } else {
+        bandiStatus = `خطا کد: ${bandiRes.status}`;
+      }
+    } catch (err: any) {
+      bandiStatus = `ناکام شو (${err.message || 'CORS / Server Fail'})`;
+    }
+
+    const fullReport = `==========================================
+د افغان بانډي د انټرنیټ او سیسټم تشخیصی راپور
+تاريخ او وخت: ${new Date().toLocaleString('ps-AF')}
+==========================================
+
+۱. آنلاین حالت (Device Online): ${navigator.onLine ? 'بلی (Online)' : 'نه (Offline)'}
+۲. اوسنی چاپیریال (Environment): ${window.location.origin}
+۳. کارول کیدونکی سرور (Active Backend): ${backend}
+۴. د کانال د پیوستون حالت: ${apiStatus}
+۵. د بندي فیچ سکرېپر حالت: ${bandiStatus}
+۶. د ځنډ وخت (Latency): ${latency}
+
+------------------------------------------
+د انټرنیټ او افلاین حالت بشپړ تحلیل او لارښوونه:
+------------------------------------------
+• ۱. که چېرې اپلیکیشن افلاین ښکاري (Offline Issue):
+  کله چې غوښتنلیک د APK په توګه واخیستل شي، له انټرنیټ پرته محلي سرور (localhost:3000) نلري. له همدې امله په اپلیکیشن کې زموږ له کلاوډ سرور ادرس څخه استفاده وکړئ:
+  ${defaultBackend}
+
+• ۲. د ټلیګرام د فلټر او CORS ستونزه:
+  ټلیګرام په مستقيمه توګه د موبایل وب ویو (WebView) ته اجازه نه ورکوي. نو زموږ د بېلا بېل پرانستل شوي کلاوډ سرور برخه د دې کار لپاره فعال ده.
+
+• ۳. د انټرنیټ ضعیف والی:
+  که ستاسو انټرنیټ بې ثباته وي، غوښتنې ټلیګرام ته ځنډېږي.
+
+------------------------------------------
+سیستمي ریکارډونه او لوګونه (Live Logs):
+${logs.map(l => `> ${l}`).join('\n')}
+==========================================`;
+
+    setDiagReportText(fullReport);
+    setDiagTesting(false);
+  };
+
+  const handleCopyReportText = () => {
+    try {
+      navigator.clipboard.writeText(diagReportText);
+      setDiagCopied(true);
+      setTimeout(() => setDiagCopied(false), 3000);
+    } catch (e) {
+      // Fallback if clipboard API fails
+      const el = document.getElementById('diag-report-textarea') as HTMLTextAreaElement;
+      if (el) {
+        el.select();
+        document.execCommand('copy');
+        setDiagCopied(true);
+        setTimeout(() => setDiagCopied(false), 3000);
+      }
+    }
+  };
 
   React.useEffect(() => {
     try {
@@ -435,6 +569,80 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
           {saveStatus && (
             <p className="text-[10px] text-[#ffb900] text-right mt-2 animate-pulse">{saveStatus}</p>
           )}
+        </div>
+      </div>
+
+      {/* 6. Comprehensive Network Diagnostic & Report Copier Card */}
+      <div className="bg-[#1c1b1f] border border-[#ffb900]/30 rounded-[24px] p-5 shadow-xl space-y-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#ffb900]/5 rounded-full blur-2xl pointer-events-none" />
+
+        <div className="flex items-center justify-between border-b border-[#2d2c30] pb-2.5">
+          <button
+            onClick={handleRunDiagnostics}
+            disabled={diagTesting}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ffb900]/15 hover:bg-[#ffb900]/30 text-[#ffb900] rounded-xl text-[11px] font-bold transition-all disabled:opacity-50 cursor-pointer border border-[#ffb900]/30"
+          >
+            <Activity className={`w-3.5 h-3.5 ${diagTesting ? 'animate-spin' : ''}`} />
+            <span>{diagTesting ? 'د تحلیل ازموینه روانه ده...' : 'د شبکې راپور نوی کړئ'}</span>
+          </button>
+
+          <h3 className="text-xs sm:text-sm font-bold text-[#ffb900] flex items-center gap-2">
+            <span>د انټرنیټ او اتصال مکمل تشخیصی راپور</span>
+            <ShieldAlert className="w-4.5 h-4.5 text-[#ffb900]" />
+          </h3>
+        </div>
+
+        <p className="text-[11px] text-[#8e8d91] leading-relaxed text-right">
+          تاسو کولی شئ لاندې مکمل راپور چی د افلاین حالت او انټرنیټي ستونزو تشریح پکې لیکل شوې ده، پوره کاپي کړئ او ماته یې دلته پېسټ کړئ:
+        </p>
+
+        {/* Action button to copy report */}
+        <div className="flex items-center justify-between bg-[#2d2c30]/40 p-2.5 rounded-xl border border-[#2d2c30]">
+          <button
+            onClick={handleCopyReportText}
+            className="flex items-center gap-2 px-4 py-2 bg-[#ffb900] hover:bg-[#ffe082] text-black font-bold rounded-xl text-xs transition-all shadow-md active:scale-95 cursor-pointer"
+          >
+            {diagCopied ? (
+              <>
+                <Check className="w-4 h-4 text-green-900" />
+                <span className="text-green-950 font-black">راپور کاپي شو!</span>
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                <span>د مکمل راپور کاپي کول (Copy Report)</span>
+              </>
+            )}
+          </button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-[#8e8d91]">د وسیلې حالت:</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${typeof navigator !== 'undefined' && navigator.onLine ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+              {typeof navigator !== 'undefined' && navigator.onLine ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+              {typeof navigator !== 'undefined' && navigator.onLine ? 'انټرنیټ وصل دی' : 'انټرنیټ پرې شوی'}
+            </span>
+          </div>
+        </div>
+
+        {/* Copyable Text Box */}
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between items-center text-[10px] text-[#8e8d91]">
+            <span className="font-mono">Pashto Network Diagnostic Log v2.0</span>
+            <span className="flex items-center gap-1 text-[#e3e2e6]">
+              <span>د راپور متن (کاپي کولو او ټاکلو وړ):</span>
+              <FileText className="w-3.5 h-3.5 text-[#ffb900]" />
+            </span>
+          </div>
+          
+          <textarea
+            id="diag-report-textarea"
+            readOnly
+            value={diagReportText}
+            dir="rtl"
+            rows={10}
+            className="w-full bg-black/90 border border-[#2d2c30] focus:border-[#ffb900] rounded-xl p-3 text-[10px] text-[#ffb900] font-mono leading-relaxed focus:outline-none resize-none select-all"
+            onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+          />
         </div>
       </div>
     </motion.div>
