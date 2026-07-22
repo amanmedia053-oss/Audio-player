@@ -11,8 +11,8 @@ export function getApiUrl(path: string): string {
 
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
 
-  // Fallback to the production deployed URL of this specific workspace
-  const defaultBackend = 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+  // Fallback to the active development cloud server of this specific workspace
+  const defaultBackend = 'https://ais-dev-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
 
   // If we are in the browser, check if it's a real web app or a mobile webview
   if (typeof window !== 'undefined') {
@@ -49,8 +49,8 @@ export function getApiUrl(path: string): string {
     // ignore
   }
 
-  // If savedUrl contains localhost or 127.0.0.1, ignore/clear it to prevent getting stuck in WebView
-  if (savedUrl && (savedUrl.includes('localhost') || savedUrl.includes('127.0.0.1'))) {
+  // If savedUrl contains localhost, 127.0.0.1, or old ais-pre URL, clear it so it resets to the active server
+  if (savedUrl && (savedUrl.includes('localhost') || savedUrl.includes('127.0.0.1') || savedUrl.includes('ais-pre-'))) {
     try {
       localStorage.removeItem('pashto_novel_backend_url');
     } catch (e) {
