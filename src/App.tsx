@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Post, ChannelInfo, PlaybackProgress, AppConfig } from './types';
-import { DEFAULT_APP_CONFIG, FALLBACK_CHANNEL_INFO, FALLBACK_POSTS } from './constants';
+import { DEFAULT_APP_CONFIG } from './constants';
 import { getApiUrl } from './utils';
 import { Toolbar } from './components/Toolbar';
 import { NavigationBar, ActiveTab } from './components/NavigationBar';
@@ -67,7 +67,18 @@ export default function App() {
   const processAndExtractConfig = (rawPosts: Post[]) => {
     let foundConfig = { ...DEFAULT_APP_CONFIG };
     
-    const filtered = rawPosts.filter(post => {
+    const mapped = rawPosts.map(post => {
+      // If audio_url is empty, assign stream proxy endpoint or fallback URL
+      if (!post.audio_url || post.audio_url.trim() === '') {
+        return {
+          ...post,
+          audio_url: getApiUrl(`/api/posts/${post.id}/stream`)
+        };
+      }
+      return post;
+    });
+
+    const filtered = mapped.filter(post => {
       if (post.text && post.text.includes('{') && post.text.includes('}')) {
         try {
           const startIdx = post.text.indexOf('{');
@@ -86,11 +97,6 @@ export default function App() {
         } catch (e) {
           // Not valid JSON or other error, treat as regular post
         }
-      }
-      
-      // Only allow posts that contain a valid, non-empty audio file URL
-      if (!post.audio_url || post.audio_url.trim() === '') {
-        return false;
       }
 
       return true;
@@ -132,20 +138,22 @@ export default function App() {
       // Check if the service worker returned the offline fallback json
       if ((channelData as any).isOffline || (postsData as any).isOffline) {
         setIsOnline(false);
-        // Try to load full backups from localStorage if available
         const localPosts = localStorage.getItem('pashto_cached_posts');
         const localChannel = localStorage.getItem('pashto_cached_channel');
         if (localPosts && localChannel) {
-          const rawLocalPosts = JSON.parse(localPosts) as Post[];
-          const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
-          setPosts(filteredPosts);
-          setAppConfig(extractedConfig);
-          setChannelInfo(JSON.parse(localChannel));
+          try {
+            const rawLocalPosts = JSON.parse(localPosts) as Post[];
+            const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
+            setPosts(filteredPosts);
+            setAppConfig(extractedConfig);
+            setChannelInfo(JSON.parse(localChannel));
+          } catch (e) {
+            setPosts([]);
+            setChannelInfo(null);
+          }
         } else {
-          const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
-          setPosts(filteredPosts);
-          setAppConfig(extractedConfig);
-          setChannelInfo(FALLBACK_CHANNEL_INFO);
+          setPosts([]);
+          setChannelInfo(null);
         }
         setLoading(false);
         return;
@@ -172,7 +180,7 @@ export default function App() {
       const detailInfo = `خطا (Error Type): ${errName}\nتفصیل (Message): ${errMsg}\nد چینل لینک (Channel API): ${channelUrl}\nد کتابونو لینک (Posts API): ${postsUrl}\nټاکل شوی د سرور ادرس (Active Backend URL): ${savedServer}\nوخت (Timestamp): ${new Date().toISOString()}\nمجموعه سیستم (User Agent): ${navigator.userAgent}`;
       setError(detailInfo);
 
-      // Load cached or fallback data so the user can still use the audio app
+      // Load cached data if available from previous online session
       const localPosts = localStorage.getItem('pashto_cached_posts');
       const localChannel = localStorage.getItem('pashto_cached_channel');
       if (localPosts && localChannel) {
@@ -183,16 +191,12 @@ export default function App() {
           setAppConfig(extractedConfig);
           setChannelInfo(JSON.parse(localChannel));
         } catch (e) {
-          const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
-          setPosts(filteredPosts);
-          setAppConfig(extractedConfig);
-          setChannelInfo(FALLBACK_CHANNEL_INFO);
+          setPosts([]);
+          setChannelInfo(null);
         }
       } else {
-        const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_POSTS);
-        setPosts(filteredPosts);
-        setAppConfig(extractedConfig);
-        setChannelInfo(FALLBACK_CHANNEL_INFO);
+        setPosts([]);
+        setChannelInfo(null);
       }
       setIsOnline(false);
     } finally {
