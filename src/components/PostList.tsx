@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Post, PlaybackProgress, AppConfig } from '../types';
 import { getApiUrl } from '../utils';
-import { Play, Pause, Clock, Search, BookOpen, ChevronLeft, Heart } from 'lucide-react';
+import { Play, Pause, Clock, Search, BookOpen, ChevronLeft, Heart, RefreshCw } from 'lucide-react';
 
 interface PostListProps {
   posts: Post[];
@@ -14,6 +14,8 @@ interface PostListProps {
   onPausePost: () => void;
   onToggleFavorite: (postId: string) => void;
   appConfig: AppConfig;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 export const PostList: React.FC<PostListProps> = ({
@@ -26,6 +28,8 @@ export const PostList: React.FC<PostListProps> = ({
   onPausePost,
   onToggleFavorite,
   appConfig,
+  onRefresh,
+  isRefreshing = false,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -85,6 +89,18 @@ export const PostList: React.FC<PostListProps> = ({
               : `ټول غږیز نشرات (${filteredPosts.length})`}
           </span>
         </h2>
+
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#ffb900]/10 hover:bg-[#ffb900]/25 text-[#ffb900] disabled:bg-[#1c1b1f] disabled:text-[#8e8d91] rounded-xl text-xs font-bold transition-all disabled:opacity-50 active:scale-95 cursor-pointer border border-[#ffb900]/20"
+            title="معلومات تازه کړئ"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>تازه کول</span>
+          </button>
+        )}
       </div>
 
       {filteredPosts.length === 0 ? (

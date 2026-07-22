@@ -8,13 +8,16 @@ interface SplashScreenProps {
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, appName }) => {
+  const onFinishRef = React.useRef(onFinish);
+  onFinishRef.current = onFinish;
+
   useEffect(() => {
     const timer = setTimeout(() => {
-      onFinish();
+      onFinishRef.current();
     }, 2800); // Display for 2.8s for premium feel and smooth animations
 
     return () => clearTimeout(timer);
-  }, [onFinish]);
+  }, []);
 
   return (
     <motion.div
