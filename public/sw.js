@@ -51,32 +51,42 @@ self.addEventListener('fetch', (event) => {
     }
 
     event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse.status === 200) {
+      (async () => {
+        try {
+          // If cross-origin request (e.g. localhost to cloud backend), create new clean request
+          const fetchReq = requestUrl.origin !== self.location.origin
+            ? new Request(event.request.url, { mode: 'cors' })
+            : event.request;
+
+          const networkResponse = await fetch(fetchReq);
+          if (networkResponse.ok) {
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseClone);
             });
+            return networkResponse;
           }
+          
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          
           return networkResponse;
-        })
-        .catch(() => {
-          console.log('[Service Worker] API Fetch failed, loading from cache:', requestUrl.pathname);
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse;
-            }
-            // If API not in cache, return an offline JSON state
-            return new Response(JSON.stringify({
-              error: 'انټرنیټ پیوستون نشته',
-              isOffline: true,
-              message: 'تاسو دا مهال په افلاین حالت کې یاست. د خوښو شویو او تاریخچې پاڼې پرانیزئ.'
-            }), {
-              headers: { 'Content-Type': 'application/json' }
-            });
+        } catch (err) {
+          console.log('[Service Worker] API Fetch failed, trying cache:', requestUrl.pathname, err);
+          const cachedResponse = await caches.match(event.request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // If API not in cache, return an offline JSON state
+          return new Response(JSON.stringify({
+            error: 'انټرنیټ پیوستون نشته',
+            isOffline: true,
+            message: 'تاسو دا مهال په افلاین حالت کې یاست. د خوښو شویو او تاریخچې پاڼې پرانیزئ.'
+          }), {
+            headers: { 'Content-Type': 'application/json' }
           });
-        })
+        }
+      })()
     );
     return;
   }
@@ -111,4 +121,3 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
-    
