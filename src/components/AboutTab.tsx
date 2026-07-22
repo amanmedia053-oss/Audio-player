@@ -107,9 +107,15 @@ https://ais-dev-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app
       logs.push(`د /api/channel-info سرور ته د پیوستون هڅه...`);
       const res = await fetch(`${backend}/api/channel-info`, { signal: AbortSignal.timeout(6000) });
       latency = `${Date.now() - startTime}ms`;
+      const contentType = res.headers.get('content-type') || '';
       if (res.ok) {
-        apiStatus = `۲۰۰ بریالی (OK) - ځنډ: ${latency}`;
-        logs.push(`د سرور ځواب: 200 OK (${latency})`);
+        if (contentType.includes('text/html')) {
+          apiStatus = `۲۰۰ بریالی مګر د JSON پر ځای HTML ویب پاڼه راغله! (HTML page returned)`;
+          logs.push(`خبرداری: سرور 200 OK شو مګر د API JSON پر ځای د HTML فایل راغی.`);
+        } else {
+          apiStatus = `۲۰۰ بریالی (OK) - ځنډ: ${latency}`;
+          logs.push(`د سرور ځواب: 200 OK (${latency})`);
+        }
       } else {
         apiStatus = `د سرور خطا کد: ${res.status}`;
         logs.push(`د سرور ځواب تېروتنه: ${res.status}`);
