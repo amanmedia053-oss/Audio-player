@@ -60,22 +60,33 @@ self.addEventListener('fetch', (event) => {
 
           const networkResponse = await fetch(fetchReq);
           if (networkResponse.ok) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
+            const ct = networkResponse.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+              const responseClone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, responseClone);
+              });
+            }
             return networkResponse;
           }
           
           const cached = await caches.match(event.request);
-          if (cached) return cached;
+          if (cached) {
+            const ct = cached.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+              return cached;
+            }
+          }
           
           return networkResponse;
         } catch (err) {
           console.log('[Service Worker] API Fetch failed, trying cache:', requestUrl.pathname, err);
           const cachedResponse = await caches.match(event.request);
           if (cachedResponse) {
-            return cachedResponse;
+            const ct = cachedResponse.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+              return cachedResponse;
+            }
           }
           // If API not in cache, return an offline JSON state
           return new Response(JSON.stringify({
