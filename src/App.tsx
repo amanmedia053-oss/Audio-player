@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Post, ChannelInfo, PlaybackProgress, AppConfig } from './types';
 import { DEFAULT_APP_CONFIG } from './constants';
 import { getApiUrl } from './utils';
+import { fetchTelegramDirect, FALLBACK_CHAPTERS, FALLBACK_CHANNEL } from './utils/telegramDirectFetcher';
 import { Toolbar } from './components/Toolbar';
 import { NavigationBar, ActiveTab } from './components/NavigationBar';
 import { SidebarDrawer } from './components/SidebarDrawer';
@@ -175,43 +176,42 @@ export default function App() {
       setLoading(true);
       setError(null);
 
-      const forceParam = force ? '?force=true' : '';
-      const [channelRes, postsRes] = await Promise.all([
-        smartFetch(`/api/channel-info${forceParam}`),
-        smartFetch(`/api/posts${forceParam}`),
-      ]);
+      let channelData: ChannelInfo | null = null;
+      let postsData: Post[] = [];
+      let isDirectSuccess = false;
 
-      const channelData = (await safeJsonParse(channelRes, 'چینل معلومات')) as ChannelInfo;
-      const postsData = (await safeJsonParse(postsRes, 'کتابونه/فصلونه')) as Post[];
+      // 1. Try server API backend first
+      try {
+        const forceParam = force ? '?force=true' : '';
+        const [channelRes, postsRes] = await Promise.all([
+          smartFetch(`/api/channel-info${forceParam}`),
+          smartFetch(`/api/posts${forceParam}`),
+        ]);
 
-      // Check if the service worker returned the offline fallback json
-      if ((channelData as any).isOffline || (postsData as any).isOffline) {
-        setIsOnline(false);
-        const localPosts = localStorage.getItem('pashto_cached_posts');
-        const localChannel = localStorage.getItem('pashto_cached_channel');
-        if (localPosts && localChannel) {
-          try {
-            const rawLocalPosts = JSON.parse(localPosts) as Post[];
-            const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
-            setPosts(filteredPosts);
-            setAppConfig(extractedConfig);
-            setChannelInfo(JSON.parse(localChannel));
-          } catch (e) {
-            setPosts([]);
-            setChannelInfo(null);
-          }
-        } else {
-          setPosts([]);
-          setChannelInfo(null);
+        channelData = (await safeJsonParse(channelRes, 'چینل معلومات')) as ChannelInfo;
+        postsData = (await safeJsonParse(postsRes, 'کتابونه/فصلونه')) as Post[];
+      } catch (serverErr) {
+        console.warn('Server proxy fetch failed, attempting client-side direct Telegram fetch...', serverErr);
+        // 2. Direct client-side Telegram public channel fetch
+        try {
+          const directData = await fetchTelegramDirect('afghan_bandi');
+          channelData = directData.channel;
+          postsData = directData.posts;
+          isDirectSuccess = true;
+        } catch (directErr) {
+          console.warn('Direct Telegram fetch failed:', directErr);
+          throw serverErr; // Throw original or let catch handler fallback
         }
-        setLoading(false);
-        return;
-      } else {
-        // Keep a fresh backup in localStorage
-        localStorage.setItem('pashto_cached_posts', JSON.stringify(postsData));
-        localStorage.setItem('pashto_cached_channel', JSON.stringify(channelData));
-        setIsOnline(true);
       }
+
+      if (!channelData || !postsData) {
+        throw new Error('کوم معلومات ونه موندل شول.');
+      }
+
+      // Keep a fresh backup in localStorage
+      localStorage.setItem('pashto_cached_posts', JSON.stringify(postsData));
+      localStorage.setItem('pashto_cached_channel', JSON.stringify(channelData));
+      setIsOnline(true);
 
       const { filteredPosts, extractedConfig } = processAndExtractConfig(postsData);
       setChannelInfo(channelData);
@@ -229,7 +229,7 @@ export default function App() {
       const detailInfo = `خطا (Error Type): ${errName}\nتفصیل (Message): ${errMsg}\nد چینل لینک (Channel API): ${channelUrl}\nد کتابونو لینک (Posts API): ${postsUrl}\nټاکل شوی د سرور ادرس (Active Backend URL): ${savedServer}\nوخت (Timestamp): ${new Date().toISOString()}\nمجموعه سیستم (User Agent): ${navigator.userAgent}`;
       setError(detailInfo);
 
-      // Load cached data if available from previous online session
+      // Load cached data or offline chapters if available
       const localPosts = localStorage.getItem('pashto_cached_posts');
       const localChannel = localStorage.getItem('pashto_cached_channel');
       if (localPosts && localChannel) {
@@ -240,12 +240,16 @@ export default function App() {
           setAppConfig(extractedConfig);
           setChannelInfo(JSON.parse(localChannel));
         } catch (e) {
-          setPosts([]);
-          setChannelInfo(null);
+          const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
+          setPosts(filteredPosts);
+          setAppConfig(extractedConfig);
+          setChannelInfo(FALLBACK_CHANNEL);
         }
       } else {
-        setPosts([]);
-        setChannelInfo(null);
+        const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
+        setPosts(filteredPosts);
+        setAppConfig(extractedConfig);
+        setChannelInfo(FALLBACK_CHANNEL);
       }
       setIsOnline(false);
     } finally {
