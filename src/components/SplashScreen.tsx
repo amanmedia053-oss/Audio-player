@@ -5,9 +5,10 @@ import { Headphones, Sparkles } from 'lucide-react';
 interface SplashScreenProps {
   onFinish: () => void;
   appName: string;
+  loading?: boolean;
 }
 
-export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, appName }) => {
+export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, appName, loading }) => {
   const onFinishRef = React.useRef(onFinish);
   onFinishRef.current = onFinish;
 
@@ -74,14 +75,18 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish, appName })
         </div>
 
         {/* Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.7, duration: 0.7 }}
-          className="text-3xl font-black text-[#ffb900] tracking-tight mb-2 drop-shadow-md"
-        >
-          {appName}
-        </motion.h1>
+        {loading && (!appName || appName === "د افغان بانډي رسمي خپرونه") ? (
+          <div className="h-9 w-48 bg-[#2d2c30] shimmer-element rounded-2xl my-2 mx-auto" />
+        ) : (
+          <motion.h1
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7, duration: 0.7 }}
+            className="text-3xl font-black text-[#ffb900] tracking-tight mb-2 drop-shadow-md"
+          >
+            {appName}
+          </motion.h1>
+        )}
 
         {/* Tagline */}
         <motion.p

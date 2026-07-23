@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Post, PlaybackProgress, AppConfig } from '../types';
-import { Play, Pause, Clock, Heart, Search, ChevronLeft, Trash2 } from 'lucide-react';
+import { Play, Pause, Clock, Heart, Search, ChevronLeft, Trash2, Loader2 } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface FavoritesTabProps {
   posts: Post[];
   favorites: string[];
   currentPlayingPost: Post | null;
   isPlaying: boolean;
+  isAudioLoading?: boolean;
   progressList: Record<string, PlaybackProgress>;
   onPlayPost: (post: Post) => void;
   onPausePost: () => void;
@@ -22,6 +24,7 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = ({
   favorites,
   currentPlayingPost,
   isPlaying,
+  isAudioLoading = false,
   progressList,
   onPlayPost,
   onPausePost,
@@ -31,6 +34,7 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = ({
   appConfig,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
 
   // Filter posts to only those that are favorited
   const favoritePosts = posts.filter((post) => favorites.includes(post.id));
@@ -68,7 +72,7 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = ({
         {favoritePosts.length > 0 && (
           <button
             id="clear-all-favorites-btn"
-            onClick={onClearAllFavorites}
+            onClick={() => setIsConfirmModalOpen(true)}
             className="flex items-center gap-1 text-xs font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3.5 py-1.5 rounded-full transition-all border border-red-500/10 hover:border-red-500/30 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -184,9 +188,17 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = ({
                     )}
 
                     <div className="flex items-start gap-4">
-                      {/* Action Play/Pause button */}
+                      {/* Action Play/Pause/Loading button */}
                       <div className="shrink-0">
-                        {isCurrent && isPlaying ? (
+                        {isCurrent && isAudioLoading ? (
+                          <button
+                            id={`fav-loading-btn-${post.id}`}
+                            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#ffb900]/20 text-[#ffb900] border border-[#ffb900]/40 shadow-md cursor-wait"
+                            title="د غږ لوډیدل..."
+                          >
+                            <Loader2 className="w-5.5 h-5.5 animate-spin text-[#ffb900]" />
+                          </button>
+                        ) : isCurrent && isPlaying ? (
                           <button
                             id={`fav-pause-btn-${post.id}`}
                             onClick={(e) => {
@@ -210,25 +222,9 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = ({
                                 : 'bg-[#2d2c30] hover:bg-[#ffb900] hover:text-black text-[#ffb900]'
                             }`}
                           >
-                            <Play className="w-5 h-5 fill-current" />
+                            <Play className="w-5 h-5 fill-current ml-0.5" />
                           </button>
                         )}
-                      </div>
-
-                      {/* Post Cover Thumbnail */}
-                      <div className="shrink-0 relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden border border-[#2d2c30]/80">
-                        <img
-                          src={(() => {
-                            const rawUrl = post.images?.[0] || appConfig.scraped_images?.[0] || appConfig.sidebar_cover_url || "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=600&q=80";
-                            if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
-                              return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
-                            }
-                            return rawUrl;
-                          })()}
-                          alt="کاور"
-                          className="w-full h-full object-cover brightness-[0.95]"
-                          referrerPolicy="no-referrer"
-                        />
                       </div>
 
                       {/* Caption Text and Meta details */}
@@ -289,6 +285,21 @@ export const FavoritesTab: React.FC<FavoritesTabProps> = ({
           )}
         </>
       )}
+
+      {/* Favorites Clear Modal */}
+      <ConfirmationModal
+        isOpen={isConfirmModalOpen}
+        title="د ټولو خوښ شویو غږونو پاکول"
+        message="ایا تاسو باوري یاست چې غواړئ ټول خوښ شوي غږونه له خپل نښه شوي لیست څخه پاک کړئ؟"
+        confirmText="هو، ټول پاک کړه"
+        cancelText="منع کړه"
+        isDanger={true}
+        onConfirm={() => {
+          onClearAllFavorites();
+          setIsConfirmModalOpen(false);
+        }}
+        onCancel={() => setIsConfirmModalOpen(false)}
+      />
     </motion.div>
   );
 };

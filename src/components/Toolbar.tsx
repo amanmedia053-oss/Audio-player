@@ -52,7 +52,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <nav
       id="top-toolbar"
-      className="sticky top-0 z-30 w-full bg-[#1c1b1f]/95 backdrop-blur-md border-b border-[#2d2c30] px-4 py-3 sm:px-6 shadow-md transition-all duration-300"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}
+      className="sticky top-0 z-30 w-full bg-[#1c1b1f]/95 backdrop-blur-md border-b border-[#2d2c30] px-4 pb-3 sm:px-6 shadow-md transition-all duration-300"
     >
       <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
         

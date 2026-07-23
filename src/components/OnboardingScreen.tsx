@@ -7,9 +7,10 @@ interface OnboardingScreenProps {
   onComplete: () => void;
   appName: string;
   appConfig: AppConfig;
+  loading?: boolean;
 }
 
-export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, appName, appConfig }) => {
+export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, appName, appConfig, loading }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   const steps = [
@@ -38,7 +39,6 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, 
     }
   ];
 
-
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
@@ -65,9 +65,13 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, 
 
       {/* Top Bar with App Name and Skip button */}
       <div className="w-full max-w-lg flex items-center justify-between z-10">
-        <span className="text-[#ffb900] font-black text-lg tracking-tight font-sans">
-          {appName}
-        </span>
+        {loading ? (
+          <div className="h-6 w-32 shimmer-element rounded-lg" />
+        ) : (
+          <span className="text-[#ffb900] font-black text-lg tracking-tight font-sans">
+            {appName}
+          </span>
+        )}
         <button
           id="skip-onboarding-btn"
           onClick={onComplete}
@@ -88,31 +92,48 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, 
             transition={{ duration: 0.4, ease: 'easeOut' }}
             className="w-full bg-[#16151a] border border-[#2d2c30]/50 rounded-[32px] p-6 sm:p-8 flex flex-col items-center text-center shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative overflow-hidden"
           >
-            {/* Top Badge */}
-            <span className="text-[10px] font-bold tracking-wider text-[#ffb900] bg-[#ffb900]/10 border border-[#ffb900]/15 px-3 py-1 rounded-full uppercase mb-6">
-              {steps[currentStep].badge}
-            </span>
+            {loading ? (
+              /* Shimmer skeleton for onboarding text content while fetching online for first time */
+              <div className="flex flex-col items-center w-full">
+                <div className="h-5 w-28 shimmer-element rounded-full mb-6" />
+                <div className="w-32 h-32 rounded-3xl bg-[#1e1d23] border border-[#2d2c30] flex items-center justify-center mb-8 shadow-inner relative">
+                  <div className="w-16 h-16 rounded-2xl shimmer-element opacity-50" />
+                </div>
+                <div className="h-8 w-56 sm:w-72 shimmer-element rounded-xl mb-4" />
+                <div className="space-y-2 w-full max-w-sm flex flex-col items-center">
+                  <div className="h-4 w-full shimmer-element rounded-md" />
+                  <div className="h-4 w-4/5 shimmer-element rounded-md" />
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Top Badge */}
+                <span className="text-[10px] font-bold tracking-wider text-[#ffb900] bg-[#ffb900]/10 border border-[#ffb900]/15 px-3 py-1 rounded-full uppercase mb-6">
+                  {steps[currentStep].badge}
+                </span>
 
-            {/* Icon Wrapper with bounce-in effect */}
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: 'spring', damping: 12, stiffness: 100, delay: 0.1 }}
-              className="w-32 h-32 rounded-3xl bg-[#1e1d23] border border-[#2d2c30] flex items-center justify-center mb-8 shadow-inner relative"
-            >
-              <div className="absolute inset-0 bg-radial from-[#ffb900]/5 to-transparent rounded-3xl" />
-              {steps[currentStep].icon}
-            </motion.div>
+                {/* Icon Wrapper with bounce-in effect */}
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', damping: 12, stiffness: 100, delay: 0.1 }}
+                  className="w-32 h-32 rounded-3xl bg-[#1e1d23] border border-[#2d2c30] flex items-center justify-center mb-8 shadow-inner relative"
+                >
+                  <div className="absolute inset-0 bg-radial from-[#ffb900]/5 to-transparent rounded-3xl" />
+                  {steps[currentStep].icon}
+                </motion.div>
 
-            {/* Title */}
-            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug mb-3">
-              {steps[currentStep].title}
-            </h2>
+                {/* Title */}
+                <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug mb-3">
+                  {steps[currentStep].title}
+                </h2>
 
-            {/* Description Paragraph */}
-            <p className="text-sm text-[#c7c6ca]/80 leading-relaxed font-medium max-w-sm">
-              {steps[currentStep].desc}
-            </p>
+                {/* Description Paragraph */}
+                <p className="text-sm text-[#c7c6ca]/80 leading-relaxed font-medium max-w-sm">
+                  {steps[currentStep].desc}
+                </p>
+              </>
+            )}
           </motion.div>
         </AnimatePresence>
       </div>

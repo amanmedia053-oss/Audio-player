@@ -51,6 +51,7 @@ export const NavigationBar: React.FC<NavigationBarProps> = ({
   return (
     <div
       id="bottom-navigation-container"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
       className="fixed bottom-0 right-0 left-0 bg-[#1c1b1f]/95 backdrop-blur-md border-t border-[#2d2c30] z-30 shadow-2xl transition-all duration-300"
     >
       <div className="max-w-md mx-auto px-6 py-2 flex items-center justify-around">

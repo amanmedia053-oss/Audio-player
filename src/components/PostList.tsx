@@ -2,17 +2,20 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Post, PlaybackProgress, AppConfig } from '../types';
 import { getApiUrl } from '../utils';
-import { Play, Pause, Clock, Search, BookOpen, ChevronLeft, Heart, RefreshCw } from 'lucide-react';
+import { Play, Pause, Clock, Search, BookOpen, ChevronLeft, Heart, RefreshCw, Loader2, HardDriveDownload, CheckCircle2 } from 'lucide-react';
 
 interface PostListProps {
   posts: Post[];
   currentPlayingPost: Post | null;
   isPlaying: boolean;
+  isAudioLoading?: boolean;
   progressList: Record<string, PlaybackProgress>;
   favorites: string[];
+  cachedAudioIds?: string[];
   onPlayPost: (post: Post) => void;
   onPausePost: () => void;
   onToggleFavorite: (postId: string) => void;
+  onToggleCacheAudio?: (postId: string) => void;
   appConfig: AppConfig;
   onRefresh?: () => void;
   isRefreshing?: boolean;
@@ -22,11 +25,14 @@ export const PostList: React.FC<PostListProps> = ({
   posts,
   currentPlayingPost,
   isPlaying,
+  isAudioLoading = false,
   progressList,
   favorites,
+  cachedAudioIds = [],
   onPlayPost,
   onPausePost,
   onToggleFavorite,
+  onToggleCacheAudio,
   appConfig,
   onRefresh,
   isRefreshing = false,
@@ -152,20 +158,27 @@ export const PostList: React.FC<PostListProps> = ({
                 )}
 
                 <div className="flex items-start gap-4">
-                  {/* Action Play/Pause button */}
+                  {/* Action Play/Pause/Loading button */}
                   <div className="shrink-0">
-                    {isCurrent && isPlaying ? (
+                    {isCurrent && isAudioLoading ? (
+                      <button
+                        id={`post-loading-btn-${post.id}`}
+                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#ffb900]/20 text-[#ffb900] border border-[#ffb900]/40 shadow-md cursor-wait"
+                        title="د غږ لوډیدل..."
+                      >
+                        <Loader2 className="w-5.5 h-5.5 animate-spin text-[#ffb900]" />
+                      </button>
+                    ) : isCurrent && isPlaying ? (
                       <button
                         id={`post-pause-btn-${post.id}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           onPausePost();
                         }}
-                        style={{ backgroundImage: `url(${postImageUrl})` }}
-                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-cover bg-center relative overflow-hidden text-white shadow-lg shadow-[#ffb900]/10 transition-all duration-200 active:scale-95 group border border-red-500/25"
+                        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-[#ffb900] hover:bg-[#e0a300] text-black shadow-lg shadow-[#ffb900]/20 transition-all duration-200 active:scale-95 border border-[#ffb900] cursor-pointer"
+                        title="غږ ودروئ"
                       >
-                        <div className="absolute inset-0 bg-black/60 group-hover:bg-black/45 transition-colors duration-200" />
-                        <Pause className="w-5 h-5 fill-[#ffb900] text-[#ffb900] relative z-10" />
+                        <Pause className="w-5 h-5 fill-black text-black" />
                       </button>
                     ) : (
                       <button
@@ -174,33 +187,16 @@ export const PostList: React.FC<PostListProps> = ({
                           e.stopPropagation();
                           onPlayPost(post);
                         }}
-                        style={{ backgroundImage: `url(${postImageUrl})` }}
-                        className={`w-12 h-12 flex items-center justify-center rounded-2xl bg-cover bg-center relative overflow-hidden transition-all duration-200 active:scale-95 group border ${
+                        className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 active:scale-95 border cursor-pointer ${
                           isCurrent
-                            ? 'border-[#ffb900]/45 shadow-lg shadow-[#ffb900]/10'
-                            : 'border-[#2d2c30]'
+                            ? 'bg-[#ffb900] text-black border-[#ffb900] shadow-lg shadow-[#ffb900]/20'
+                            : 'bg-[#2d2c30] hover:bg-[#ffb900] text-[#ffb900] hover:text-black border-[#3e3d42]'
                         }`}
+                        title="غږ واورئ"
                       >
-                        <div className="absolute inset-0 bg-black/60 group-hover:bg-black/45 transition-colors duration-200" />
-                        <Play className="w-5 h-5 fill-[#ffb900] text-[#ffb900] relative z-10 ml-0.5" />
+                        <Play className="w-5 h-5 fill-current ml-0.5" />
                       </button>
                     )}
-                  </div>
-
-                  {/* Post Cover Thumbnail */}
-                  <div className="shrink-0 relative w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden border border-[#2d2c30]/80">
-                    <img
-                      src={(() => {
-                        const rawUrl = post.images?.[0] || appConfig.scraped_images?.[0] || appConfig.sidebar_cover_url || "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=600&q=80";
-                        if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
-                          return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}`);
-                        }
-                        return rawUrl;
-                      })()}
-                      alt="کاور"
-                      className="w-full h-full object-cover brightness-[0.95]"
-                      referrerPolicy="no-referrer"
-                    />
                   </div>
 
                   {/* Caption Text and Meta details */}
@@ -230,6 +226,13 @@ export const PostList: React.FC<PostListProps> = ({
                         </span>
                       )}
 
+                      {cachedAudioIds.includes(post.id) && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span>افلاین ذخیره شوی</span>
+                        </span>
+                      )}
+
                       <span className="text-[#8e8d91] font-mono text-[10px] hidden sm:inline">
                         ID: {post.id}
                       </span>
@@ -238,6 +241,29 @@ export const PostList: React.FC<PostListProps> = ({
 
                   {/* Left Action / Indicator Group */}
                   <div className="shrink-0 self-center flex items-center gap-2">
+                    {/* Offline Download/Cache Button */}
+                    {onToggleCacheAudio && (
+                      <button
+                        id={`post-cache-btn-${post.id}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleCacheAudio(post.id);
+                        }}
+                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-90 cursor-pointer ${
+                          cachedAudioIds.includes(post.id)
+                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-500/5'
+                            : 'bg-[#2d2c30]/50 hover:bg-[#ffb900]/10 border border-[#2d2c30] hover:border-[#ffb900]/30 text-[#8e8d91] hover:text-[#ffb900]'
+                        }`}
+                        title={
+                          cachedAudioIds.includes(post.id)
+                            ? 'افلاین دوسیه په حافظه کې شتون لري (د پاکولو لپاره کلیک وکړئ)'
+                            : 'د افلاین اورېدلو لپاره ډانلوډ/ذخیره کول'
+                        }
+                      >
+                        <HardDriveDownload className="w-4.5 h-4.5" />
+                      </button>
+                    )}
+
                     {/* Favorite Button */}
                     <button
                       id={`post-fav-btn-${post.id}`}

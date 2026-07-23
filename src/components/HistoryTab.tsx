@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Post, PlaybackProgress, AppConfig } from '../types';
 import { Play, Trash2, History, Award, Clock } from 'lucide-react';
+import { ConfirmationModal } from './ConfirmationModal';
 
 interface HistoryTabProps {
   posts: Post[];
@@ -20,6 +21,15 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   onClearAllProgress,
   appConfig,
 }) => {
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    type: 'single' | 'all';
+    postId?: string;
+  }>({
+    isOpen: false,
+    type: 'single',
+  });
+
   const progressItems = (Object.values(progressList) as PlaybackProgress[])
     .filter((item) => item.currentTime > 2)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
@@ -34,6 +44,15 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
   // Calculate some fun stats
   const totalListenedSecs = progressItems.reduce((acc, item) => acc + item.currentTime, 0);
   const totalListenedMins = Math.round(totalListenedSecs / 60);
+
+  const handleConfirmDelete = () => {
+    if (deleteModalState.type === 'single' && deleteModalState.postId) {
+      onClearProgress(deleteModalState.postId);
+    } else if (deleteModalState.type === 'all') {
+      onClearAllProgress();
+    }
+    setDeleteModalState({ isOpen: false, type: 'single' });
+  };
 
   return (
     <motion.div
@@ -75,8 +94,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
         {progressItems.length > 0 && (
           <button
             id="clear-all-history-btn"
-            onClick={onClearAllProgress}
-            className="text-xs text-[#ffb4ab] hover:text-[#ff897a] flex items-center gap-1 bg-[#3a1d1d]/40 px-3 py-1.5 rounded-xl border border-[#8c1d1d]/30 transition-colors active:scale-95"
+            onClick={() => setDeleteModalState({ isOpen: true, type: 'all' })}
+            className="text-xs text-[#ffb4ab] hover:text-[#ff897a] flex items-center gap-1 bg-[#3a1d1d]/40 px-3 py-1.5 rounded-xl border border-[#8c1d1d]/30 transition-colors active:scale-95 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>{appConfig.history_clear_all_btn || "ټول پاک کړئ"}</span>
@@ -138,7 +157,7 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     <button
                       id={`history-play-btn-${item.postId}`}
                       onClick={() => onPlayPost(associatedPost, item.currentTime)}
-                      className="w-9 h-9 bg-[#ffb900] hover:bg-[#e0a300] text-black rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md"
+                      className="w-9 h-9 bg-[#ffb900] hover:bg-[#e0a300] text-black rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-md cursor-pointer"
                       title={appConfig.history_play_tooltip || "بیا اورېدل پیل کړئ"}
                     >
                       <Play className="w-4 h-4 fill-black" />
@@ -146,8 +165,8 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
                     
                     <button
                       id={`history-delete-btn-${item.postId}`}
-                      onClick={() => onClearProgress(item.postId)}
-                      className="w-9 h-9 bg-[#2d2c30] hover:bg-red-500/20 text-[#c7c6ca] hover:text-[#ff897a] rounded-xl flex items-center justify-center active:scale-95 transition-all"
+                      onClick={() => setDeleteModalState({ isOpen: true, type: 'single', postId: item.postId })}
+                      className="w-9 h-9 bg-[#2d2c30] hover:bg-red-500/20 text-[#c7c6ca] hover:text-[#ff897a] rounded-xl flex items-center justify-center active:scale-95 transition-all cursor-pointer"
                       title={appConfig.history_delete_tooltip || "له تاریخچې پاکول"}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -167,6 +186,30 @@ export const HistoryTab: React.FC<HistoryTabProps> = ({
           })}
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={deleteModalState.isOpen}
+        title={
+          deleteModalState.type === 'all'
+            ? "د ټولې تاریخچې پاکول"
+            : "له تاریخچې څخه حذفول"
+        }
+        message={
+          deleteModalState.type === 'all'
+            ? "ایا تاسو باوري یاست چې غواړئ ستاسو د ټول اورېدل شویو غږونو تاریخچه او پرمختګ له منځه یوسئ؟ دا عمل بېرته نه شي ګرځېدلی."
+            : "ایا تاسو باوري یاست چې غواړئ دا غږیز فصل له خپلې تاریخچې څخه لېرې کړئ؟"
+        }
+        confirmText={
+          deleteModalState.type === 'all'
+            ? "هو، ټولې دوسیې پاکې کړه"
+            : "هو، پاک یې کړه"
+        }
+        cancelText="منع کړه"
+        isDanger={true}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteModalState({ isOpen: false, type: 'single' })}
+      />
     </motion.div>
   );
 };
