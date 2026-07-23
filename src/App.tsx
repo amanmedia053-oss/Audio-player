@@ -123,36 +123,51 @@ export default function App() {
 
   const smartFetch = async (endpointPath: string) => {
     const primaryUrl = getApiUrl(endpointPath);
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 6000);
-      const res = await fetch(primaryUrl, { signal: controller.signal });
-      clearTimeout(timer);
-      if (res.ok) return res;
-      throw new Error(`د سرور خطا (Status: ${res.status})`);
-    } catch (primaryErr: any) {
-      // If a custom saved backend URL was used and failed or timed out, attempt relative fallback
-      const savedBackend = localStorage.getItem('pashto_novel_backend_url');
-      if (savedBackend && typeof window !== 'undefined' && savedBackend !== window.location.origin) {
-        console.warn('Custom backend failed, trying relative fallback...', primaryErr);
-        const fallbackUrl = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 6000);
-          const res = await fetch(fallbackUrl, { signal: controller.signal });
-          clearTimeout(timer);
-          if (res.ok) {
-            // Fallback succeeded! Clean up bad saved URL
-            localStorage.removeItem('pashto_novel_backend_url');
-            setCustomBackend('');
-            return res;
-          }
-        } catch (fallbackErr) {
-          // Ignore and throw primary error
-        }
-      }
-      throw primaryErr;
+    const cleanPath = endpointPath.startsWith('/') ? endpointPath : `/${endpointPath}`;
+    
+    const PUBLIC_PRE_BACKEND = 'https://ais-pre-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+    const PUBLIC_DEV_BACKEND = 'https://ais-dev-4xuxrlpowzv4l2utwp2m7n-392082030555.us-west1.run.app';
+
+    // List of candidate URLs to attempt in order
+    const candidates: string[] = [primaryUrl];
+    
+    const preUrl = `${PUBLIC_PRE_BACKEND}${cleanPath}`;
+    if (!candidates.includes(preUrl)) {
+      candidates.push(preUrl);
     }
+
+    const devUrl = `${PUBLIC_DEV_BACKEND}${cleanPath}`;
+    if (!candidates.includes(devUrl)) {
+      candidates.push(devUrl);
+    }
+
+    if (!candidates.includes(cleanPath)) {
+      candidates.push(cleanPath);
+    }
+
+    let lastError: any = null;
+
+    for (const url of candidates) {
+      try {
+        const controller = new AbortController();
+        // 15 seconds timeout per candidate URL for mobile cellular networks and cold starts
+        const timer = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(url, { 
+          signal: controller.signal,
+          referrerPolicy: 'no-referrer',
+          mode: 'cors'
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          return res;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Fetch candidate failed for ${url}:`, err?.message || err);
+      }
+    }
+
+    throw lastError || new Error(`د سرور سره د پیوستون غوښتنه ناکامه شوه (Server connection failed).`);
   };
 
   const fetchData = async (force: boolean = false) => {
