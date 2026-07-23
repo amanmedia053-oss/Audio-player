@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { Post, ChannelInfo, PlaybackProgress, AppConfig } from './types';
 import { DEFAULT_APP_CONFIG } from './constants';
 import { getApiUrl } from './utils';
 import { fetchTelegramDirect, FALLBACK_CHAPTERS, FALLBACK_CHANNEL } from './utils/telegramDirectFetcher';
+import { getCachedAudioUrl, saveAudioToCache, getAllCachedAudioIds, removeAudioFromCache } from './utils/audioCache';
 import { Toolbar } from './components/Toolbar';
 import { NavigationBar, ActiveTab } from './components/NavigationBar';
 import { SidebarDrawer } from './components/SidebarDrawer';
@@ -16,21 +18,172 @@ import { AudioPlayer } from './components/AudioPlayer';
 import { SplashScreen } from './components/SplashScreen';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { SkeletonLoader } from './components/SkeletonLoader';
-import { AlertCircle, Copy, Check, RefreshCw, Server, Globe } from 'lucide-react';
+import { ConfirmationModal } from './components/ConfirmationModal';
+import { AlertCircle, Copy, Check, RefreshCw, Server, Globe, WifiOff } from 'lucide-react';
+
+// Helper to process raw posts list, extract JSON config if any, and filter out system/non-audio posts
+const processAndExtractConfig = (rawPosts: Post[]) => {
+  let foundConfig = { ...DEFAULT_APP_CONFIG };
+  const filtered: Post[] = [];
+
+  for (const post of rawPosts) {
+    // 1. Extract JSON configuration post if present
+    if (post.text && post.text.includes('{') && post.text.includes('}')) {
+      try {
+        const startIdx = post.text.indexOf('{');
+        const endIdx = post.text.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+          const jsonStr = post.text.substring(startIdx, endIdx + 1);
+          const parsed = JSON.parse(jsonStr);
+          if (parsed && typeof parsed === 'object') {
+            foundConfig = { ...foundConfig, ...parsed };
+            if (post.images && post.images.length > 0) {
+              foundConfig.scraped_images = post.images;
+            }
+            continue; // Exclude config post from audio listings
+          }
+        }
+      } catch (e) {
+        // Not valid JSON, continue checks
+      }
+    }
+
+    // 2. Ignore system and service messages
+    const lowerText = (post.text || '').toLowerCase();
+    const isSystemText =
+      lowerText.includes('channel created') ||
+      lowerText.includes('channel photo updated') ||
+      lowerText.includes('channel name changed') ||
+      lowerText.includes('pinned a message') ||
+      lowerText.includes('چینل جوړ شو') ||
+      lowerText.includes('چینل انځور بدلون');
+
+    if (isSystemText) {
+      continue;
+    }
+
+    // 3. Audio requirement: post MUST contain a valid audio file or voice note URL
+    let audioUrl = post.audio_url ? post.audio_url.trim() : '';
+
+    // Check if audioUrl is an unplayable Telegram HTML page link (e.g., https://t.me/afghan_bandi/123)
+    const isUnplayableHtmlPage = audioUrl.includes('t.me/') && !audioUrl.match(/\.(mp3|m4a|ogg|wav|aac|opus|flac|mp4)($|\?)/i) && !audioUrl.includes('file/');
+
+    if (!audioUrl || isUnplayableHtmlPage) {
+      continue; // Do NOT include posts that do not have an audio file in the list
+    }
+
+    filtered.push({
+      ...post,
+      audio_url: audioUrl,
+    });
+  }
+
+  if (filtered.length === 0) {
+    return { filteredPosts: FALLBACK_CHAPTERS, extractedConfig: foundConfig };
+  }
+
+  return { filteredPosts: filtered, extractedConfig: foundConfig };
+};
 
 export default function App() {
   // Navigation State
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
 
   // Splash & Onboarding States
   const [showSplash, setShowSplash] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
-  // Application Data States
-  const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [appConfig, setAppConfig] = useState<AppConfig>(DEFAULT_APP_CONFIG);
+  // Android Capacitor Back Button & Browser History Handler
+  useEffect(() => {
+    let backListener: { remove: () => void } | null = null;
+
+    const setupCapacitorBack = async () => {
+      try {
+        backListener = await CapacitorApp.addListener('backButton', () => {
+          if (showExitConfirmModal) {
+            setShowExitConfirmModal(false);
+            return;
+          }
+          if (drawerOpen) {
+            setDrawerOpen(false);
+            return;
+          }
+          if (activeTab !== 'home') {
+            setActiveTab('home');
+            return;
+          }
+          // On Home tab -> Show exit confirmation modal
+          setShowExitConfirmModal(true);
+        });
+      } catch (e) {
+        // Web fallback / non-Capacitor environment
+      }
+    };
+
+    setupCapacitorBack();
+
+    const handlePopState = () => {
+      if (showExitConfirmModal) {
+        setShowExitConfirmModal(false);
+        return;
+      }
+      if (drawerOpen) {
+        setDrawerOpen(false);
+        return;
+      }
+      if (activeTab !== 'home') {
+        setActiveTab('home');
+        return;
+      }
+      setShowExitConfirmModal(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      if (backListener && typeof backListener.remove === 'function') {
+        backListener.remove();
+      }
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [drawerOpen, activeTab, showExitConfirmModal]);
+
+  // Application Data States (Initialized from local cache for instant offline rendering)
+  const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(() => {
+    try {
+      const cached = localStorage.getItem('pashto_cached_channel');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [posts, setPosts] = useState<Post[]>(() => {
+    try {
+      const cached = localStorage.getItem('pashto_cached_posts');
+      if (cached) {
+        const parsed = JSON.parse(cached) as Post[];
+        const { filteredPosts } = processAndExtractConfig(parsed);
+        return filteredPosts;
+      }
+    } catch {}
+    return [];
+  });
+
+  const [appConfig, setAppConfig] = useState<AppConfig>(() => {
+    try {
+      const cached = localStorage.getItem('pashto_cached_posts');
+      if (cached) {
+        const parsed = JSON.parse(cached) as Post[];
+        const { extractedConfig } = processAndExtractConfig(parsed);
+        return extractedConfig;
+      }
+    } catch {}
+    return DEFAULT_APP_CONFIG;
+  });
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -49,6 +202,7 @@ export default function App() {
   // Playback & Audio Control States
   const [currentPost, setCurrentPost] = useState<Post | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1.0);
@@ -58,53 +212,17 @@ export default function App() {
   // Saved progress list (loaded from localStorage on start)
   const [progressList, setProgressList] = useState<Record<string, PlaybackProgress>>({});
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [cachedAudioIds, setCachedAudioIds] = useState<string[]>([]);
+
+  // Load list of offline cached audio IDs on start
+  useEffect(() => {
+    getAllCachedAudioIds().then((ids) => setCachedAudioIds(ids));
+  }, []);
 
   // Audio HTML5 reference
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSavedTimeRef = useRef<number>(0);
   const playPromiseRef = useRef<Promise<void> | null>(null);
-
-  // Helper to process raw posts list, extract JSON config if any, and filter it out from playlist
-  const processAndExtractConfig = (rawPosts: Post[]) => {
-    let foundConfig = { ...DEFAULT_APP_CONFIG };
-    
-    const mapped = rawPosts.map(post => {
-      // If audio_url is empty, assign stream proxy endpoint or fallback URL
-      if (!post.audio_url || post.audio_url.trim() === '') {
-        return {
-          ...post,
-          audio_url: getApiUrl(`/api/posts/${post.id}/stream`)
-        };
-      }
-      return post;
-    });
-
-    const filtered = mapped.filter(post => {
-      if (post.text && post.text.includes('{') && post.text.includes('}')) {
-        try {
-          const startIdx = post.text.indexOf('{');
-          const endIdx = post.text.lastIndexOf('}');
-          if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
-            const jsonStr = post.text.substring(startIdx, endIdx + 1);
-            const parsed = JSON.parse(jsonStr);
-            if (parsed && typeof parsed === 'object') {
-              foundConfig = { ...foundConfig, ...parsed };
-              if (post.images && post.images.length > 0) {
-                foundConfig.scraped_images = post.images;
-              }
-              return false; // exclude this config post from audio listings
-            }
-          }
-        } catch (e) {
-          // Not valid JSON or other error, treat as regular post
-        }
-      }
-
-      return true;
-    });
-
-    return { filteredPosts: filtered, extractedConfig: foundConfig };
-  };
 
   const safeJsonParse = async (res: Response, name: string) => {
     const contentType = res.headers.get('content-type') || '';
@@ -218,7 +336,7 @@ export default function App() {
       setPosts(filteredPosts);
       setAppConfig(extractedConfig);
     } catch (err: any) {
-      console.error('Fetch error:', err);
+      console.error('Fetch error:', err?.message || String(err));
       
       // Construct exact descriptive diagnostic error
       const postsUrl = getApiUrl('/api/posts');
@@ -239,17 +357,20 @@ export default function App() {
           setPosts(filteredPosts);
           setAppConfig(extractedConfig);
           setChannelInfo(JSON.parse(localChannel));
+          setError(null);
         } catch (e) {
           const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
           setPosts(filteredPosts);
           setAppConfig(extractedConfig);
           setChannelInfo(FALLBACK_CHANNEL);
+          setError(null);
         }
       } else {
         const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
         setPosts(filteredPosts);
         setAppConfig(extractedConfig);
         setChannelInfo(FALLBACK_CHANNEL);
+        setError(null);
       }
       setIsOnline(false);
     } finally {
@@ -289,7 +410,7 @@ export default function App() {
             loadedProgress[progressObj.postId] = progressObj;
           }
         } catch (e) {
-          console.error('Error loading progress key:', key, e);
+          console.error('Error loading progress key:', key, (e as any)?.message || String(e));
         }
       }
     }
@@ -301,7 +422,7 @@ export default function App() {
         setFavorites(JSON.parse(savedFavs) as string[]);
       }
     } catch (e) {
-      console.error('Error loading favorites:', e);
+      console.error('Error loading favorites:', (e as any)?.message || String(e));
     }
 
     const onboardingCompleted = localStorage.getItem('pashto_onboarding_completed') === 'true';
@@ -341,9 +462,19 @@ export default function App() {
           }
         })
         .catch((err) => {
+          setIsPlaying(false);
+          setIsAudioLoading(false);
           // Silently handle AbortError to prevent interrupting error messages
           if (err && err.name !== 'AbortError') {
-            console.error('Playback error:', err);
+            console.warn('Playback error encountered:', err?.message || err);
+            // Attempt fallback to reliable audio source if current source failed
+            if (audioRef.current && FALLBACK_CHAPTERS.length > 0) {
+              const fallbackUrl = FALLBACK_CHAPTERS[0].audio_url;
+              if (audioRef.current.src !== fallbackUrl) {
+                audioRef.current.src = fallbackUrl;
+                audioRef.current.load();
+              }
+            }
           }
         });
     } else {
@@ -373,18 +504,43 @@ export default function App() {
     }
   };
 
-  const handlePlayPost = (post: Post, startAtTime?: number) => {
+  const handlePlayPost = async (post: Post, startAtTime?: number) => {
     if (!audioRef.current) return;
 
     const isSame = currentPost?.id === post.id;
-    const streamUrl = getApiUrl(`/api/posts/${post.id}/stream`);
+
+    // 1. Check if we have a locally cached Blob ObjectURL in IndexedDB for 100% offline playback
+    let targetAudioSource: string | null = null;
+    try {
+      targetAudioSource = await getCachedAudioUrl(post.id);
+    } catch (e) {
+      console.warn('Error checking offline audio cache:', e);
+    }
+
+    // 2. If not cached locally, fallback to direct audio URL or proxy stream
+    if (!targetAudioSource) {
+      targetAudioSource = (post.audio_url && post.audio_url.trim() !== '')
+        ? post.audio_url
+        : getApiUrl(`/api/posts/${post.id}/stream`);
+
+      // Automatically cache in background if online so it plays offline next time
+      if (navigator.onLine && post.audio_url) {
+        saveAudioToCache(post.id, post.audio_url).then(async (success) => {
+          if (success) {
+            const updatedIds = await getAllCachedAudioIds();
+            setCachedAudioIds(updatedIds);
+          }
+        });
+      }
+    }
 
     if (!isSame) {
       // Pause any active playback safely first
       safePause();
 
+      setIsAudioLoading(true);
       setCurrentPost(post);
-      audioRef.current.src = streamUrl;
+      audioRef.current.src = targetAudioSource;
       audioRef.current.load();
 
       // Listen for metadata to seek and play smoothly
@@ -417,7 +573,27 @@ export default function App() {
       if (isPlaying) {
         safePause();
       } else {
+        setIsAudioLoading(true);
         safePlay();
+      }
+    }
+  };
+
+  const handleToggleCacheAudio = async (postId: string) => {
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+
+    const isCached = cachedAudioIds.includes(postId);
+    if (isCached) {
+      await removeAudioFromCache(postId);
+      const updated = await getAllCachedAudioIds();
+      setCachedAudioIds(updated);
+    } else {
+      const audioUrl = post.audio_url || getApiUrl(`/api/posts/${post.id}/stream`);
+      const success = await saveAudioToCache(postId, audioUrl);
+      if (success) {
+        const updated = await getAllCachedAudioIds();
+        setCachedAudioIds(updated);
       }
     }
   };
@@ -531,15 +707,13 @@ export default function App() {
 
   // Clear all playback progress
   const handleClearAllProgress = () => {
-    if (window.confirm('ایا یقین لرئ چې غواړئ ټوله تاریخچه او پرمختګ پاک کړئ؟')) {
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('pashto_audio_progress_')) {
-          localStorage.removeItem(key);
-        }
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('pashto_audio_progress_')) {
+        localStorage.removeItem(key);
       }
-      setProgressList({});
     }
+    setProgressList({});
   };
 
   // Toggle favorite status
@@ -555,10 +729,8 @@ export default function App() {
 
   // Clear all favorite items
   const handleClearAllFavorites = () => {
-    if (window.confirm('ایا یقین لرئ چې غواړئ ټول خوښ شوي غږونه پاک کړئ؟')) {
-      localStorage.removeItem('pashto_audio_favorites');
-      setFavorites([]);
-    }
+    localStorage.removeItem('pashto_audio_favorites');
+    setFavorites([]);
   };
 
   // Count items with active progress > 2s
@@ -610,7 +782,7 @@ export default function App() {
         });
       }
     } catch (e) {
-      console.error('Error setting media session metadata:', e);
+      console.error('Error setting media session metadata:', (e as any)?.message || String(e));
     }
   }, [currentPost, channelInfo]);
 
@@ -630,7 +802,7 @@ export default function App() {
           position: currentTime,
         });
       } catch (e) {
-        console.warn('Error setting media session position state:', e);
+        console.warn('Error setting media session position state:', (e as any)?.message || String(e));
       }
     }
   }, [currentTime, duration, speed, currentPost]);
@@ -670,7 +842,7 @@ export default function App() {
         handleDismissPlayerRef.current();
       });
     } catch (e) {
-      console.warn('Error setting media session action handlers:', e);
+      console.warn('Error setting media session action handlers:', (e as any)?.message || String(e));
     }
 
     return () => {
@@ -692,6 +864,7 @@ export default function App() {
         <SplashScreen
           key="splash"
           appName={channelInfo ? channelInfo.name : 'افغان بانډي'}
+          loading={loading && !channelInfo}
           onFinish={() => setShowSplash(false)}
         />
       ) : showOnboarding ? (
@@ -699,6 +872,7 @@ export default function App() {
           key="onboarding"
           appName={channelInfo ? channelInfo.name : 'افغان بانډي'}
           appConfig={appConfig}
+          loading={loading && !channelInfo}
           onComplete={() => {
             localStorage.setItem('pashto_onboarding_completed', 'true');
             setShowOnboarding(false);
@@ -724,6 +898,26 @@ export default function App() {
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onEnded={handleNext}
+            onLoadStart={() => setIsAudioLoading(true)}
+            onWaiting={() => setIsAudioLoading(true)}
+            onSeeking={() => setIsAudioLoading(true)}
+            onCanPlay={() => setIsAudioLoading(false)}
+            onPlaying={() => setIsAudioLoading(false)}
+            onPause={() => setIsAudioLoading(false)}
+            onError={(e) => {
+              setIsAudioLoading(false);
+              setIsPlaying(false);
+              const errCode = audioRef.current?.error?.code;
+              console.warn('Audio tag playback error code:', errCode || 'unknown');
+              if (audioRef.current && FALLBACK_CHAPTERS.length > 0) {
+                const fallbackUrl = FALLBACK_CHAPTERS[0].audio_url;
+                if (audioRef.current.src !== fallbackUrl) {
+                  audioRef.current.src = fallbackUrl;
+                  audioRef.current.load();
+                }
+              }
+            }}
+            preload="metadata"
             className="hidden"
           />
 
@@ -758,8 +952,16 @@ export default function App() {
             <Toolbar
               channelInfo={channelInfo}
               activeTab={activeTab}
-              onChangeTab={setActiveTab}
-              onOpenDrawer={() => setDrawerOpen(true)}
+              onChangeTab={(tab) => {
+                if (activeTab !== tab) {
+                  window.history.pushState({ tab }, '');
+                  setActiveTab(tab);
+                }
+              }}
+              onOpenDrawer={() => {
+                window.history.pushState({ drawer: true }, '');
+                setDrawerOpen(true);
+              }}
               loading={loading}
               appConfig={appConfig}
             />
@@ -771,30 +973,13 @@ export default function App() {
                   {/* Offline Status Info Banner */}
                   {!isOnline && (
                     <div id="offline-status-banner" className="max-w-4xl mx-auto px-4 sm:px-6">
-                      <div className="flex items-center justify-between gap-3 bg-[#231a0e] text-[#ffb900] p-4 rounded-3xl border border-[#ffb900]/20 shadow-md">
-                        <div className="flex items-center gap-2">
-                          <span className="relative flex h-2.5 w-2.5 mr-1">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#ffb900] opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#ffb900]"></span>
-                          </span>
-                          <p className="text-xs font-bold text-right">{appConfig.app_offline_desc || "تاسو په افلاین حالت کې یاست. خلاصې شوې خپرونې د اورېدو وړ دي."}</p>
-                        </div>
-                        <span className="text-[10px] bg-[#ffb900]/15 text-[#ffb900] px-2.5 py-1 rounded-full font-extrabold shrink-0 select-none">
-                          {appConfig.app_offline_badge || "افلاین حالت"}
+                      <div className="flex items-center justify-center gap-2.5 bg-[#1c1b1f] text-[#ffb900] py-3 px-5 rounded-2xl border border-[#ffb900]/25 shadow-sm text-center">
+                        <WifiOff className="w-5 h-5 text-[#ffb900] shrink-0" />
+                        <span className="text-xs sm:text-sm font-bold text-[#e3e2e6]">
+                          {appConfig.app_offline_desc || "انټرنېټ نشته - تاسو په افلاین حالت کې یاست"}
                         </span>
                       </div>
                     </div>
-                  )}
-
-                  {/* Continue Listening Row */}
-                  {!loading && !error && posts.length > 0 && (
-                    <ContinueRow
-                      posts={posts}
-                      progressList={progressList}
-                      onPlayPost={handlePlayPost}
-                      onClearProgress={handleClearProgress}
-                      appConfig={appConfig}
-                    />
                   )}
 
                   {/* Global Loading Skeleton instead of generic spinner */}
@@ -803,7 +988,7 @@ export default function App() {
                   )}
 
                   {/* Global Error Banner */}
-                  {error && !loading && (
+                  {error && !loading && isOnline && (
                     <div id="main-error-banner" className="max-w-4xl mx-auto px-4 sm:px-6">
                       <div className="bg-[#241313] text-[#ffb4ab] p-6 rounded-[28px] border border-[#ffb4ab]/20 shadow-xl space-y-4">
                         <div className="flex items-start justify-between gap-4">
@@ -989,11 +1174,14 @@ export default function App() {
                       posts={posts}
                       currentPlayingPost={currentPost}
                       isPlaying={isPlaying}
+                      isAudioLoading={isAudioLoading}
                       progressList={progressList}
                       favorites={favorites}
+                      cachedAudioIds={cachedAudioIds}
                       onPlayPost={(p) => handlePlayPost(p)}
                       onPausePost={handlePausePost}
                       onToggleFavorite={handleToggleFavorite}
+                      onToggleCacheAudio={handleToggleCacheAudio}
                       appConfig={appConfig}
                       onRefresh={() => fetchData(true)}
                       isRefreshing={loading}
@@ -1019,6 +1207,7 @@ export default function App() {
                   favorites={favorites}
                   currentPlayingPost={currentPost}
                   isPlaying={isPlaying}
+                  isAudioLoading={isAudioLoading}
                   progressList={progressList}
                   onPlayPost={handlePlayPost}
                   onPausePost={handlePausePost}
@@ -1059,10 +1248,34 @@ export default function App() {
             {/* Floating Bottom Navigation Bar */}
             <NavigationBar
               activeTab={activeTab}
-              onChangeTab={setActiveTab}
+              onChangeTab={(tab) => {
+                if (activeTab !== tab) {
+                  window.history.pushState({ tab }, '');
+                  setActiveTab(tab);
+                }
+              }}
               historyCount={activeProgressCount}
               favoritesCount={favorites.length}
               appConfig={appConfig}
+            />
+
+            {/* Android Hardware Back Button Exit App Confirmation Modal */}
+            <ConfirmationModal
+              isOpen={showExitConfirmModal}
+              title={appConfig.exit_dialog_title || "له اپلیکیشن څخه وتل"}
+              message={appConfig.exit_dialog_msg || "آیا باوري یاست چې غواړئ له افغان بانډي اپلیکیشن څخه وځئ؟"}
+              confirmText={appConfig.exit_dialog_confirm || "هو، ووځه"}
+              cancelText={appConfig.exit_dialog_cancel || "منع کړه"}
+              isDanger={false}
+              onConfirm={async () => {
+                setShowExitConfirmModal(false);
+                try {
+                  await CapacitorApp.exitApp();
+                } catch (e) {
+                  console.log('App exiting');
+                }
+              }}
+              onCancel={() => setShowExitConfirmModal(false)}
             />
           </motion.div>
         </div>

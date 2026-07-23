@@ -43,7 +43,18 @@ body {
   direction: rtl;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+.pt-safe-area {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+}
+
+.pb-safe-area {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
 
 /* Hide scrollbar globally for a cleaner look */
 ::-webkit-scrollbar {
