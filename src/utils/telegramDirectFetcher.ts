@@ -58,10 +58,27 @@ export async function fetchTelegramDirect(channelHandle: string = 'afghan_bandi'
     const parsedPosts: Post[] = [];
 
     messageNodes.forEach((node, index) => {
+      // Ignore system and service messages
+      const isServiceMessage = node.querySelector('.tgme_widget_message_service, .service_message') !== null;
+      if (isServiceMessage) return;
+
       const id = node.getAttribute('data-post') || `direct-${index}-${Date.now()}`;
       
       const textNode = node.querySelector('.tgme_widget_message_text');
       const text = textNode ? textNode.textContent?.trim() || '' : '';
+
+      const lowerText = text.toLowerCase();
+      const isSystemText =
+        lowerText.includes('channel created') ||
+        lowerText.includes('channel photo updated') ||
+        lowerText.includes('channel name changed') ||
+        lowerText.includes('pinned a message') ||
+        lowerText.includes('چینل جوړ شو') ||
+        lowerText.includes('چینل انځور بدلون');
+
+      const isJsonConfig = text.includes('{') && text.includes('}');
+
+      if (isSystemText && !isJsonConfig) return;
 
       // Date & Time
       const timeNode = node.querySelector('.tgme_widget_message_date time');
@@ -84,26 +101,34 @@ export async function fetchTelegramDirect(channelHandle: string = 'afghan_bandi'
 
       const audioNode = node.querySelector('audio');
       if (audioNode) {
-        audio_url = audioNode.getAttribute('src') || '';
+        audio_url = audioNode.getAttribute('src') || audioNode.getAttribute('data-src') || '';
       }
 
       if (!audio_url) {
-        const docTitleNode = node.querySelector('.tgme_widget_message_document_title');
-        const docTitle = docTitleNode ? docTitleNode.textContent?.trim() || '' : '';
-        if (docTitle.toLowerCase().endsWith('.mp3') || docTitle.toLowerCase().endsWith('.m4a') || docTitle.toLowerCase().endsWith('.ogg')) {
-          const docLink = node.querySelector('a.tgme_widget_message_document_wrap') as HTMLAnchorElement | null;
-          if (docLink) {
-            audio_url = docLink.href || '';
-          }
+        const voicePlayer = node.querySelector('.tgme_widget_message_voice_player');
+        if (voicePlayer) {
+          audio_url = voicePlayer.getAttribute('src') || voicePlayer.getAttribute('data-src') || voicePlayer.getAttribute('href') || '';
         }
       }
 
-      const durationNode = node.querySelector('.tgme_widget_message_document_extra');
+      if (!audio_url) {
+        const docLink = node.querySelector('a.tgme_widget_message_document_wrap, a.tgme_widget_message_document_title, a[href*=".mp3"], a[href*=".m4a"], a[href*=".ogg"]') as HTMLAnchorElement | null;
+        if (docLink) {
+          audio_url = docLink.getAttribute('href') || docLink.getAttribute('data-src') || '';
+        }
+      }
+
+      if (audio_url && audio_url.startsWith('/')) {
+        audio_url = `https://t.me${audio_url}`;
+      }
+
+      const durationNode = node.querySelector('.tgme_widget_message_document_extra, .tgme_widget_message_voice_duration');
       if (durationNode) {
         duration = durationNode.textContent?.trim() || '';
       }
 
-      if (text || audio_url || images.length > 0) {
+      // ONLY keep posts that contain an audio file or voice note (or JSON config)
+      if ((audio_url && audio_url.trim() !== '') || isJsonConfig) {
         parsedPosts.push({
           id,
           text,
@@ -170,4 +195,3 @@ export const FALLBACK_CHANNEL: ChannelInfo = {
   avatar_url: "https://images.unsplash.com/photo-1474932430478-367db26836c1?w=300&h=300&fit=crop",
   description: "د افغان بندي غږیز ناول او حماسي کیسو رسمي ټولګه او غږیز حساب."
 };
-  
