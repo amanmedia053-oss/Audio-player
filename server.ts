@@ -285,14 +285,17 @@ async function startServer() {
 
             const dateAttr = $el.find('time').attr('datetime') || new Date().toISOString();
 
-            parsedPosts.push({
-              id,
-              text: text || "د افغان بانډي رسمي غږیز خپرونه - د غږیز ناول فصل واورئ",
-              audio_url: audioUrl,
-              duration: isConfig ? "0:00" : duration,
-              date: dateAttr,
-              images: images.length > 0 ? images : undefined
-            });
+            // Only include posts that actually contain an audio file or JSON config
+            if (audioUrl || isConfig) {
+              parsedPosts.push({
+                id,
+                text: text || "د افغان بانډي رسمي غږیز خپرونه - د غږیز ناول فصل واورئ",
+                audio_url: audioUrl,
+                duration: isConfig ? "0:00" : duration,
+                date: dateAttr,
+                images: images.length > 0 ? images : undefined
+              });
+            }
           }
         });
       } else {
