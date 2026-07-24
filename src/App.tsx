@@ -19,6 +19,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { OnboardingScreen } from './components/OnboardingScreen';
 import { SkeletonLoader } from './components/SkeletonLoader';
 import { ConfirmationModal } from './components/ConfirmationModal';
+import { SettingsModal, AppSettings, DEFAULT_SETTINGS } from './components/SettingsModal';
 import { AlertCircle, Copy, Check, RefreshCw, Server, Globe, WifiOff } from 'lucide-react';
 
 // Helper to process raw posts list, extract JSON config if any, and filter out system/non-audio posts
@@ -277,6 +278,42 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [copied, setCopied] = useState(false);
   
+  // App Settings State (Theme Color, Dark/Light Mode, Notifications, etc.)
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem('pashto_app_settings');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return DEFAULT_SETTINGS;
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Helper to convert hex to RGB numbers for CSS opacity variables
+  const hexToRgb = (hex: string) => {
+    let c = hex.replace('#', '');
+    if (c.length === 3) c = c.split('').map(x => x + x).join('');
+    const num = parseInt(c, 16);
+    return `${(num >> 16) & 255}, ${(num >> 8) & 255}, ${num & 255}`;
+  };
+
+  // Sync settings changes to localStorage and DOM
+  useEffect(() => {
+    try {
+      localStorage.setItem('pashto_app_settings', JSON.stringify(settings));
+    } catch (e) {}
+
+    // Ensure dark mode on body and documentElement
+    document.body.classList.remove('light-mode', 'light');
+    document.documentElement.classList.remove('light-mode', 'light');
+    document.body.classList.add('dark');
+    document.documentElement.classList.add('dark');
+
+    // Apply theme color CSS variables
+    const color = settings.themeColor || '#ffb900';
+    document.documentElement.style.setProperty('--accent-color', color);
+    document.documentElement.style.setProperty('--accent-rgb', hexToRgb(color));
+  }, [settings]);
+
   // Custom server settings state
   const [customBackend, setCustomBackend] = useState(() => {
     try {
@@ -625,14 +662,6 @@ export default function App() {
           // Silently handle AbortError to prevent interrupting error messages
           if (err && err.name !== 'AbortError') {
             console.warn('Playback error encountered:', err?.message || err);
-            // Attempt fallback to reliable audio source if current source failed
-            if (audioRef.current && FALLBACK_CHAPTERS.length > 0) {
-              const fallbackUrl = FALLBACK_CHAPTERS[0].audio_url;
-              if (audioRef.current.src !== fallbackUrl) {
-                audioRef.current.src = fallbackUrl;
-                audioRef.current.load();
-              }
-            }
           }
         });
     } else {
@@ -917,32 +946,79 @@ export default function App() {
     handleDismissPlayerRef.current = handleDismissPlayer;
   });
 
-  // 7. Browser Media Session API Integration
+  // 7. Browser Media Session API Integration & Mobile Background Notifications
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentPost) return;
 
     try {
       if ('MediaMetadata' in window) {
+        const defaultCover = "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=512&q=80";
+        const coverSrc = currentPost.coverUrl || appConfig.sidebar_cover_url || defaultCover;
+        const proxiedCover = (coverSrc.includes('telegram') || coverSrc.includes('t.me'))
+          ? getApiUrl(`/api/proxy-image?url=${encodeURIComponent(coverSrc)}`)
+          : coverSrc;
+
         navigator.mediaSession.metadata = new window.MediaMetadata({
           title: currentPost.title,
           artist: channelInfo ? channelInfo.title : 'افغان بانډي',
-          album: 'پښتو غږیزې لیکنې',
-          artwork: currentPost.coverUrl ? [
-            { src: currentPost.coverUrl, sizes: '96x96', type: 'image/jpeg' },
-            { src: currentPost.coverUrl, sizes: '128x128', type: 'image/jpeg' },
-            { src: currentPost.coverUrl, sizes: '192x192', type: 'image/jpeg' },
-            { src: currentPost.coverUrl, sizes: '256x256', type: 'image/jpeg' },
-            { src: currentPost.coverUrl, sizes: '384x384', type: 'image/jpeg' },
-            { src: currentPost.coverUrl, sizes: '512x512', type: 'image/jpeg' },
-          ] : [
-            { src: '/logo.png', sizes: '512x512', type: 'image/png' }
+          album: appConfig.app_title || 'پښتو غږیزې لیکنې',
+          artwork: [
+            { src: proxiedCover, sizes: '96x96', type: 'image/jpeg' },
+            { src: proxiedCover, sizes: '128x128', type: 'image/jpeg' },
+            { src: proxiedCover, sizes: '192x192', type: 'image/jpeg' },
+            { src: proxiedCover, sizes: '256x256', type: 'image/jpeg' },
+            { src: proxiedCover, sizes: '384x384', type: 'image/jpeg' },
+            { src: proxiedCover, sizes: '512x512', type: 'image/jpeg' },
           ]
         });
       }
     } catch (e) {
       console.error('Error setting media session metadata:', (e as any)?.message || String(e));
     }
-  }, [currentPost, channelInfo]);
+  }, [currentPost, channelInfo, appConfig]);
+
+  // Handle system background notifications when switching apps / minimizing
+  useEffect(() => {
+    if (!currentPost) return;
+
+    // Request notification permissions if supported
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    const triggerNotification = () => {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          const artistName = channelInfo ? channelInfo.title : 'افغان بانډي';
+          const coverSrc = currentPost.coverUrl || appConfig.sidebar_cover_url || '/logo.png';
+          const notif = new Notification(currentPost.title, {
+            body: `${artistName} • ${isPlaying ? 'په اورېدلو کې...' : 'مخنیوی شوی'}`,
+            icon: coverSrc,
+            badge: '/logo.png',
+            tag: 'pashto-player-notification',
+            silent: true,
+          });
+          notif.onclick = () => {
+            window.focus();
+            notif.close();
+          };
+        } catch (e) {
+          // ignore notification errors on unsupported mobile browsers
+        }
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && isPlaying) {
+        triggerNotification();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentPost, isPlaying, channelInfo, appConfig]);
 
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentPost) return;
@@ -1043,6 +1119,7 @@ export default function App() {
             channelInfo={channelInfo}
             activeTab={activeTab}
             onChangeTab={setActiveTab}
+            onOpenSettings={() => setIsSettingsOpen(true)}
             historyCount={activeProgressCount}
             favoritesCount={favorites.length}
             isOpen={drawerOpen}
@@ -1056,24 +1133,34 @@ export default function App() {
             onTimeUpdate={handleTimeUpdate}
             onLoadedMetadata={handleLoadedMetadata}
             onEnded={handleNext}
+            onPlay={() => {
+              setIsPlaying(true);
+              if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'playing';
+              }
+            }}
+            onPause={() => {
+              setIsPlaying(false);
+              if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'paused';
+              }
+            }}
             onLoadStart={() => setIsAudioLoading(true)}
             onWaiting={() => setIsAudioLoading(true)}
             onSeeking={() => setIsAudioLoading(true)}
             onCanPlay={() => setIsAudioLoading(false)}
-            onPlaying={() => setIsAudioLoading(false)}
-            onPause={() => setIsAudioLoading(false)}
+            onPlaying={() => {
+              setIsAudioLoading(false);
+              setIsPlaying(true);
+              if ('mediaSession' in navigator) {
+                navigator.mediaSession.playbackState = 'playing';
+              }
+            }}
             onError={(e) => {
               setIsAudioLoading(false);
               setIsPlaying(false);
               const errCode = audioRef.current?.error?.code;
               console.warn('Audio tag playback error code:', errCode || 'unknown');
-              if (audioRef.current && FALLBACK_CHAPTERS.length > 0) {
-                const fallbackUrl = FALLBACK_CHAPTERS[0].audio_url;
-                if (audioRef.current.src !== fallbackUrl) {
-                  audioRef.current.src = fallbackUrl;
-                  audioRef.current.load();
-                }
-              }
             }}
             preload="metadata"
             className="hidden"
@@ -1120,6 +1207,7 @@ export default function App() {
                 window.history.pushState({ drawer: true }, '');
                 setDrawerOpen(true);
               }}
+              onOpenSettings={() => setIsSettingsOpen(true)}
               loading={loading}
               appConfig={appConfig}
             />
@@ -1128,18 +1216,6 @@ export default function App() {
             <main className="py-4 flex-grow">
               {activeTab === 'home' && (
                 <div className="space-y-6">
-                  {/* Offline Status Info Banner */}
-                  {!isOnline && (
-                    <div id="offline-status-banner" className="max-w-4xl mx-auto px-4 sm:px-6">
-                      <div className="flex items-center justify-center gap-2.5 bg-[#1c1b1f] text-[#ffb900] py-3 px-5 rounded-2xl border border-[#ffb900]/25 shadow-sm text-center">
-                        <WifiOff className="w-5 h-5 text-[#ffb900] shrink-0" />
-                        <span className="text-xs sm:text-sm font-bold text-[#e3e2e6]">
-                          {appConfig.app_offline_desc || "انټرنېټ نشته - تاسو په افلاین حالت کې یاست"}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Global Loading Skeleton instead of generic spinner */}
                   {loading && (
                     <SkeletonLoader />
@@ -1426,6 +1502,21 @@ export default function App() {
               historyCount={activeProgressCount}
               favoritesCount={favorites.length}
               appConfig={appConfig}
+            />
+
+            {/* Settings Modal */}
+            <SettingsModal
+              isOpen={isSettingsOpen}
+              onClose={() => setIsSettingsOpen(false)}
+              settings={settings}
+              onUpdateSettings={(newPartial) => {
+                setSettings((prev) => ({ ...prev, ...newPartial }));
+              }}
+              onClearCache={() => {
+                localStorage.removeItem('pashto_cached_posts');
+                localStorage.removeItem('pashto_cached_channel');
+                fetchData(true);
+              }}
             />
 
             {/* Android Hardware Back Button Exit App Confirmation Modal */}

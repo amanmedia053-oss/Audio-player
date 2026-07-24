@@ -20,7 +20,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   about_arranger_sub: 'د غږیز کتابتون ډیزاین او تدوین',
   about_arranger_note: 'د افغان بانډي د غږیزو خپرونو او کتابونو مینه والو ته په خورا دقت او کیفیت سره مواد راټولوي او ترتیبوي.',
 
-  about_telegram_url: 'https://t.me/afghan_bandi',
+  about_telegram_url: 'https://t.me/obaidapp',
   about_whatsapp_url: 'https://wa.me/93700000000',
   about_facebook_url: 'https://facebook.com/afghan_bandi',
   about_youtube_url: 'https://youtube.com/@afghan_bandi',

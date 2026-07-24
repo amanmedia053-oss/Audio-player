@@ -5,46 +5,114 @@
   --font-sans: "Vazirmatn", "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
+:root {
+  --accent-color: #ffb900;
+  --accent-rgb: 255, 185, 0;
 
-.shimmer-bg {
-  background: linear-gradient(
-    -90deg,
-    #1c1b1f 25%,
-    #2a282f 50%,
-    #1c1b1f 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.8s infinite linear;
-}
-
-.shimmer-element {
-  background: linear-gradient(
-    -90deg,
-    #2a282f 25%,
-    #3c3945 50%,
-    #2a282f 75%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 1.8s infinite linear;
+  --bg-app: #121115;
+  --bg-card: #1c1b1f;
+  --bg-hover: #252428;
+  --bg-elevated: #2d2c30;
+  --border-subtle: #2d2c30;
+  --text-main: #e3e2e6;
+  --text-sub: #8e8d91;
 }
 
 body {
   font-family: var(--font-sans);
-  background-color: #121214;
-  color: #e3e2e6;
+  background-color: var(--bg-app);
+  color: var(--text-main);
   direction: rtl;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ==========================================================================
+   1. DYNAMIC ACCENT COLOR MAP
+   Applies user-selected theme color to ALL icons, text, buttons, badges,
+   borders, sliders, and focus rings across the app.
+   ========================================================================== */
+
+/* Accent Text & Icons */
+[class*="text-[#ffb900]"],
+[class*="group-hover:text-[#ffb900]"]:hover,
+[class*="hover:text-[#ffb900]"]:hover,
+.text-amber-400,
+.text-amber-500 {
+  color: var(--accent-color) !important;
+}
+
+/* Accent Backgrounds */
+[class*="bg-[#ffb900]"],
+[class*="hover:bg-[#ffb900]"]:hover {
+  background-color: var(--accent-color) !important;
+}
+
+/* Accent Borders */
+[class*="border-[#ffb900]"],
+[class*="hover:border-[#ffb900]"]:hover {
+  border-color: var(--accent-color) !important;
+}
+
+/* Accent SVG Fill / Stroke */
+[class*="stroke-[#ffb900]"] {
+  stroke: var(--accent-color) !important;
+}
+
+[class*="fill-[#ffb900]"] {
+  fill: var(--accent-color) !important;
+}
+
+/* Accent Opacity Variations */
+[class*="bg-[#ffb900]/5"] { background-color: rgba(var(--accent-rgb), 0.05) !important; }
+[class*="bg-[#ffb900]/10"], [class*="hover:bg-[#ffb900]/10"]:hover { background-color: rgba(var(--accent-rgb), 0.10) !important; }
+[class*="bg-[#ffb900]/15"] { background-color: rgba(var(--accent-rgb), 0.15) !important; }
+[class*="bg-[#ffb900]/20"], [class*="hover:bg-[#ffb900]/20"]:hover { background-color: rgba(var(--accent-rgb), 0.20) !important; }
+[class*="bg-[#ffb900]/25"] { background-color: rgba(var(--accent-rgb), 0.25) !important; }
+[class*="bg-[#ffb900]/30"] { background-color: rgba(var(--accent-rgb), 0.30) !important; }
+[class*="bg-[#ffb900]/40"] { background-color: rgba(var(--accent-rgb), 0.40) !important; }
+
+[class*="border-[#ffb900]/10"] { border-color: rgba(var(--accent-rgb), 0.10) !important; }
+[class*="border-[#ffb900]/20"], [class*="hover:border-[#ffb900]/20"]:hover { border-color: rgba(var(--accent-rgb), 0.20) !important; }
+[class*="border-[#ffb900]/25"] { border-color: rgba(var(--accent-rgb), 0.25) !important; }
+[class*="border-[#ffb900]/30"], [class*="hover:border-[#ffb900]/30"]:hover { border-color: rgba(var(--accent-rgb), 0.30) !important; }
+[class*="border-[#ffb900]/40"] { border-color: rgba(var(--accent-rgb), 0.40) !important; }
+[class*="border-[#ffb900]/50"] { border-color: rgba(var(--accent-rgb), 0.50) !important; }
+
+[class*="ring-[#ffb900]"], [class*="ring-[#ffb900]/20"] {
+  --tw-ring-color: rgba(var(--accent-rgb), 0.35) !important;
+}
+
+[class*="focus:border-[#ffb900]"]:focus {
+  border-color: var(--accent-color) !important;
+}
+
+[class*="focus:ring-[#ffb900]"]:focus {
+  --tw-ring-color: rgba(var(--accent-rgb), 0.40) !important;
+}
+
+[class*="shadow-[#ffb900]"], [class*="shadow-[#ffb900]/10"], [class*="shadow-[#ffb900]/20"] {
+  box-shadow: 0 8px 20px -3px rgba(var(--accent-rgb), 0.25) !important;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.shimmer-bg {
+  background: linear-gradient(-90deg, #1c1b1f 25%, #2a282f 50%, #1c1b1f 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite linear;
+}
+
+.shimmer-element {
+  background: linear-gradient(-90deg, #2a282f 25%, #3c3945 50%, #2a282f 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite linear;
 }
 
 .pt-safe-area {
@@ -55,8 +123,7 @@ body {
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
 }
 
-
-/* Hide scrollbar globally for a cleaner look */
+/* Hide scrollbars globally */
 ::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
@@ -66,4 +133,3 @@ body {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
 }
-
