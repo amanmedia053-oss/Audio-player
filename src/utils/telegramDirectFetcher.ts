@@ -127,8 +127,10 @@ export async function fetchTelegramDirect(channelHandle: string = 'afghan_bandi'
         duration = durationNode.textContent?.trim() || '';
       }
 
-      // ONLY keep posts that contain an audio file or voice note (or JSON config)
-      if ((audio_url && audio_url.trim() !== '') || isJsonConfig) {
+      const isHashtagImages = text.includes('#انځورونه');
+
+      // ONLY keep posts that contain an audio file or voice note (or JSON config or #انځورونه hashtag)
+      if ((audio_url && audio_url.trim() !== '') || isJsonConfig || isHashtagImages) {
         parsedPosts.push({
           id,
           text,
@@ -156,6 +158,22 @@ export async function fetchTelegramDirect(channelHandle: string = 'afghan_bandi'
  * Built-in fallback audio chapters when network is completely offline
  */
 export const FALLBACK_CHAPTERS: Post[] = [
+  {
+    id: "afg-images-post",
+    text: `#انځورونه
+د افغان بانډي د رسمي کاریال او خپرونو انځورونه او کاورونه:
+1. د څنګ مینو غټ کاور انځور
+2. د زموږ په اړه برخه کاور انځور
+3. د جوړوونکي او لیکوال پروفایل انځور`,
+    audio_url: "",
+    duration: "",
+    date: new Date().toISOString(),
+    images: [
+      "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1513001900722-370f803f498d?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1607990283143-e81e7a2c93ab?auto=format&fit=crop&w=300&h=300&q=80"
+    ]
+  },
   {
     id: "afg-offline-1",
     text: "د افغان بندي غږیز ناول - لومړی فصل: د ګوانتانامو له تورې زندان څخه د زړه دردونکي کیسې پیل، ظالمانه تحقیقات او د نوي مبارزې روحیه.",
