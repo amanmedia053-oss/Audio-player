@@ -36,6 +36,9 @@ interface AudioPlayerProps {
   onDismiss?: () => void;
   appConfig: AppConfig;
   channelName?: string;
+  isExpanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  onReturnToHome?: () => void;
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
@@ -57,8 +60,20 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   onDismiss,
   appConfig,
   channelName = 'افغان بانډي',
+  isExpanded: externalExpanded,
+  onExpandedChange,
+  onReturnToHome,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = externalExpanded !== undefined ? externalExpanded : internalExpanded;
+
+  const setExpanded = (val: boolean) => {
+    setInternalExpanded(val);
+    if (onExpandedChange) {
+      onExpandedChange(val);
+    }
+  };
+
   const [showSpeedSelector, setShowSpeedSelector] = useState(false);
   
   // Ref and state for border seekbar dimensions
@@ -181,7 +196,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               {/* Cover Art / Title / Description */}
               <div
                 id="docked-info-trigger"
-                onClick={() => setIsExpanded(true)}
+                onClick={() => setExpanded(true)}
                 className="flex items-center gap-3.5 min-w-0 flex-1 cursor-pointer group"
               >
                 {/* Animated Graphic/Equalizer Thumbnail */}
@@ -230,14 +245,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                     e.stopPropagation();
                     onTogglePlay();
                   }}
-                  style={{ backgroundImage: `url(${postImageUrl})` }}
-                  className="w-10 h-10 rounded-full bg-cover bg-center relative overflow-hidden text-black flex items-center justify-center shadow-[0_3px_12px_rgba(255,185,0,0.3)] hover:scale-105 active:scale-90 transition-all shrink-0 group border border-[#ffb900]/25"
+                  className="w-10 h-10 rounded-full bg-[#ffb900] hover:bg-[#e0a300] text-black flex items-center justify-center shadow-md active:scale-90 transition-all shrink-0 cursor-pointer"
                 >
-                  <div className="absolute inset-0 bg-black/60 group-hover:bg-black/45 transition-colors" />
                   {isPlaying ? (
-                    <Pause className="w-4 h-4 fill-[#ffb900] text-[#ffb900] relative z-10" />
+                    <Pause className="w-4 h-4 fill-black text-black" />
                   ) : (
-                    <Play className="w-4 h-4 fill-[#ffb900] text-[#ffb900] relative z-10 ml-0.5" />
+                    <Play className="w-4 h-4 fill-black text-black ml-0.5" />
                   )}
                 </button>
 
@@ -259,7 +272,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   id="docked-expand-btn"
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsExpanded(true);
+                    setExpanded(true);
                   }}
                   className="p-1.5 sm:p-2 text-[#c7c6ca] hover:text-[#ffb900] hover:bg-white/5 rounded-full transition-all active:scale-90"
                   title={appConfig.player_title_expand || "پراخ کړئ"}
@@ -274,12 +287,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                     e.stopPropagation();
                     if (onDismiss) onDismiss();
                   }}
-                  style={{ backgroundImage: `url(${postImageUrl})` }}
-                  className="w-10 h-10 rounded-full bg-cover bg-center relative overflow-hidden text-[#c7c6ca] flex items-center justify-center transition-all active:scale-90 group border border-red-500/25"
+                  className="w-10 h-10 rounded-full bg-[#2d2c30] hover:bg-red-500/20 text-[#c7c6ca] hover:text-red-400 flex items-center justify-center transition-all active:scale-90 border border-[#3e3d42] cursor-pointer"
                   title={appConfig.player_title_dismiss || "بندول"}
                 >
-                  <div className="absolute inset-0 bg-black/65 group-hover:bg-black/50 transition-colors" />
-                  <X className="w-4.5 h-4.5 text-red-400 relative z-10 font-bold" />
+                  <X className="w-4.5 h-4.5 font-bold" />
                 </button>
               </div>
             </div>
@@ -302,11 +313,15 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             <div className="px-6 py-4 border-b border-[#2d2c30] flex items-center justify-between bg-[#1c1b1f]">
               <button
                 id="close-player-btn"
-                onClick={() => setIsExpanded(false)}
-                className="p-2 hover:bg-[#2d2c30] text-[#c7c6ca] rounded-full transition-colors"
-                title={appConfig.player_title_close || "تړل"}
+                onClick={() => {
+                  setExpanded(false);
+                  if (onReturnToHome) onReturnToHome();
+                }}
+                className="p-2 hover:bg-[#2d2c30] text-[#c7c6ca] hover:text-[#ffb900] rounded-full transition-colors flex items-center gap-1 cursor-pointer"
+                title={appConfig.player_title_close || "تړل او کورپاڼې ته تلل"}
               >
                 <ChevronDown className="w-6 h-6" />
+                <span className="text-xs font-bold text-[#ffb900] hidden sm:inline">کورپاڼه</span>
               </button>
 
               <h2 id="player-sheet-title" className="text-base font-extrabold text-[#ffb900] flex items-center gap-2">
@@ -317,10 +332,10 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
               <button
                 id="fullscreen-dismiss-btn"
                 onClick={() => {
-                  setIsExpanded(false);
+                  setExpanded(false);
                   if (onDismiss) onDismiss();
                 }}
-                className="p-2 hover:bg-red-500/10 text-[#c7c6ca] hover:text-red-400 rounded-full transition-colors"
+                className="p-2 hover:bg-red-500/10 text-[#c7c6ca] hover:text-red-400 rounded-full transition-colors cursor-pointer"
                 title={appConfig.player_title_dismiss || "بندول"}
               >
                 <X className="w-6 h-6" />
@@ -422,14 +437,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   <button
                     id="expanded-toggle-play-btn"
                     onClick={onTogglePlay}
-                    style={{ backgroundImage: `url(${postImageUrl})` }}
-                    className="w-20 h-20 rounded-full bg-cover bg-center relative overflow-hidden text-black flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 group border-2 border-[#ffb900]/45"
+                    className="w-20 h-20 rounded-full bg-[#ffb900] hover:bg-[#e0a300] text-black flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer border-2 border-[#ffdd80]/50"
                   >
-                    <div className="absolute inset-0 bg-black/55 group-hover:bg-black/40 transition-colors" />
                     {isPlaying ? (
-                      <Pause className="w-8 h-8 fill-[#ffb900] text-[#ffb900] relative z-10" />
+                      <Pause className="w-8 h-8 fill-black text-black" />
                     ) : (
-                      <Play className="w-8 h-8 fill-[#ffb900] text-[#ffb900] relative z-10 ml-1" />
+                      <Play className="w-8 h-8 fill-black text-black ml-1" />
                     )}
                   </button>
 

@@ -11,7 +11,9 @@ import {
   Heart,
   Sparkles,
   BookOpen,
-  Code
+  Code,
+  UserCheck,
+  Feather
 } from 'lucide-react';
 
 interface AboutTabProps {
@@ -37,7 +39,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
         <div className="relative aspect-[21/9] w-full overflow-hidden border-b border-[#2d2c30]">
           <img
             src={(() => {
-              const rawUrl = appConfig.scraped_images?.[1] || appConfig.about_cover_url || "https://images.unsplash.com/photo-1513001900722-370f803f498d?auto=format&fit=crop&w=1000&q=80";
+              const rawUrl = appConfig.about_cover_url || appConfig.scraped_images?.[1] || appConfig.scraped_images?.[0] || "https://images.unsplash.com/photo-1513001900722-370f803f498d?auto=format&fit=crop&w=1000&q=80";
               if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
                 return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}`);
               }
@@ -64,7 +66,7 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
             <img
               id="creator-profile-avatar"
               src={(() => {
-                const rawUrl = appConfig.scraped_images?.[2] || appConfig.creator_avatar_url || "https://images.unsplash.com/photo-1607990283143-e81e7a2c93ab?auto=format&fit=crop&w=250&h=250&q=80";
+                const rawUrl = appConfig.creator_avatar_url || appConfig.scraped_images?.[2] || appConfig.scraped_images?.[0] || "https://images.unsplash.com/photo-1607990283143-e81e7a2c93ab?auto=format&fit=crop&w=250&h=250&q=80";
                 if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
                   return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(rawUrl)}`);
                 }
@@ -94,6 +96,51 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
             <p className="text-xs sm:text-sm text-[#c7c6ca] leading-relaxed font-normal select-text">
               {appConfig.about_intro_text}
             </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Arranger / Compiler Details Card */}
+      <div className="bg-[#1c1b1f] border border-[#2d2c30] rounded-[24px] p-5 shadow-md space-y-3.5 text-right relative overflow-hidden">
+        <div className="flex items-center justify-between border-b border-[#2d2c30] pb-3">
+          <span className="text-[10px] bg-[#ffb900]/15 text-[#ffb900] px-2.5 py-1 rounded-full font-bold flex items-center gap-1">
+            <Feather className="w-3 h-3" />
+            <span>تنظیم او تدوین</span>
+          </span>
+          <h3 className="text-xs sm:text-sm font-bold text-[#e3e2e6] flex items-center gap-2">
+            <span>{appConfig.about_arranger_title || "د خپرونو او مینځپانګې ترتیب کوونکی"}</span>
+            <UserCheck className="w-4 h-4 text-[#ffb900]" />
+          </h3>
+        </div>
+
+        <div className="flex items-start gap-3.5 pt-1">
+          {appConfig.arranger_avatar_url ? (
+            <img
+              src={appConfig.arranger_avatar_url}
+              alt="د ترتیب کوونکي انځور"
+              className="w-12 h-12 rounded-full object-cover border-2 border-[#ffb900]/40 shrink-0"
+            />
+          ) : (
+            <div className="w-12 h-12 rounded-full bg-[#ffb900]/10 border border-[#ffb900]/30 text-[#ffb900] flex items-center justify-center shrink-0">
+              <Feather className="w-6 h-6" />
+            </div>
+          )}
+
+          <div className="space-y-1 text-right flex-1 select-text">
+            <h4 className="text-sm sm:text-base font-black text-[#ffb900]">
+              {appConfig.about_arranger_name || "ترتیب او تنظیم کوونکی"}
+            </h4>
+            <p className="text-xs text-[#e3e2e6] font-medium">
+              {appConfig.about_arranger_role || "د غږیزو کتابونو او داستانونو د راټولولو او ترتیب مسؤل"}
+            </p>
+            {appConfig.about_arranger_sub && (
+              <p className="text-[10px] text-[#8e8d91] font-mono">{appConfig.about_arranger_sub}</p>
+            )}
+            {appConfig.about_arranger_note && (
+              <p className="text-xs text-[#c7c6ca] mt-2 leading-relaxed bg-[#2d2c30]/40 p-3 rounded-xl border border-[#2d2c30]/60">
+                {appConfig.about_arranger_note}
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -6,36 +6,34 @@ import { AppConfig } from '../types';
 interface OnboardingScreenProps {
   onComplete: () => void;
   appName: string;
-  appConfig: AppConfig;
+  appConfig?: AppConfig;
   loading?: boolean;
 }
 
-export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, appName, appConfig, loading }) => {
+export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, appName, loading }) => {
   const [currentStep, setCurrentStep] = useState(0);
 
   const steps = [
     {
-      title: appConfig.onboarding_step1_title,
-      desc: appConfig.onboarding_step1_desc.includes('{appName}')
-        ? appConfig.onboarding_step1_desc.replace('{appName}', appName)
-        : `${appName} ${appConfig.onboarding_step1_desc}`,
+      title: 'غږیزې نړۍ ته ښه راغلاست! 🎧',
+      desc: `رسمي غږیز کتابتون ${appName} ته هرکله راشئ. دلته به تاسو د پښتو غوره ناولونو، په زړه پورې لنډو کیسو او غږیزو مقالو بډایه ټولګه په وړیا او لوړ کیفیت غږ سره ترلاسه کړئ.`,
       icon: <Compass className="w-16 h-16 text-[#ffb900]" />,
       accent: 'from-[#ffb900]/20 to-transparent',
-      badge: appConfig.onboarding_step1_badge,
+      badge: 'هرکلی او پېژندنه',
     },
     {
-      title: appConfig.onboarding_step2_title,
-      desc: appConfig.onboarding_step2_desc,
+      title: 'خپل پرمختګ خوندي او تعقیب کړئ 💾',
+      desc: 'ستاسو د اورېدو پرمختګ په اوتومات ډول ثبت کېږي ترڅو هر غږیز اثر بیا له هماغه ځای څخه پيل کړئ. همداراز په افلاین حالت کې هم کولای شئ پخوانۍ پرانیستل شوې کیسې بې له انټرنیټه واورئ.',
       icon: <History className="w-16 h-16 text-[#ffb900]" />,
       accent: 'from-[#ffb900]/20 to-transparent',
-      badge: appConfig.onboarding_step2_badge,
+      badge: 'سمارټ او افلاین غږول',
     },
     {
-      title: appConfig.onboarding_step3_title,
-      desc: appConfig.onboarding_step3_desc,
+      title: 'خوښ شوي اثار او بډایه کڅوړه ❤️',
+      desc: 'هغه فصلونه او ناولونه چې ستاسو زیات خوښېږي، په اسانۍ سره نښه کړئ او د خوښو غږونو په کڅوړه کې یې وساتئ ترڅو په هر وخت کې ورته ژر او چټک لاسرسی ولرئ.',
       icon: <Heart className="w-16 h-16 text-red-500 fill-red-500/10" />,
       accent: 'from-red-500/15 to-transparent',
-      badge: appConfig.onboarding_step3_badge,
+      badge: 'خوښ شوي غږونه',
     }
   ];
 
@@ -77,7 +75,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, 
           onClick={onComplete}
           className="text-xs font-bold text-[#c7c6ca]/60 hover:text-white bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-full border border-white/5 transition-all cursor-pointer"
         >
-          {appConfig.onboarding_btn_skip || "تېرېدل (Skip)"}
+          تېرېدل (Skip)
         </button>
       </div>
 
@@ -166,7 +164,7 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, 
               className="flex items-center gap-1.5 px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-white text-sm font-bold border border-white/5 transition-colors cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
-              <span>{appConfig.onboarding_btn_prev || "شاته"}</span>
+              <span>شاته</span>
             </button>
           ) : (
             <div className="w-[84px]" /* Empty placeholder for balance */ />
@@ -184,12 +182,12 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, 
           >
             {currentStep === steps.length - 1 ? (
               <>
-                <span>{appConfig.onboarding_btn_start || "پيل کړئ (Get Started)"}</span>
+                <span>پيل کړئ (Get Started)</span>
                 <Check className="w-4 h-4 text-black stroke-[3px]" />
               </>
             ) : (
               <>
-                <span>{appConfig.onboarding_btn_next || "بل پړاو"}</span>
+                <span>بل پړاو</span>
                 <ChevronLeft className="w-4 h-4 text-black stroke-[3px]" />
               </>
             )}

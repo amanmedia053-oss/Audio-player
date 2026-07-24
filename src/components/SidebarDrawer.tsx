@@ -98,7 +98,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 <div className="relative aspect-[16/9] w-full rounded-2xl overflow-hidden border border-[#2d2c30] shadow-lg">
                   <img
                     src={(() => {
-                      const rawUrl = appConfig.scraped_images?.[0] || appConfig.sidebar_cover_url || "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=600&q=80";
+                      const rawUrl = appConfig.sidebar_cover_url || appConfig.scraped_images?.[0] || "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=600&q=80";
                       if (rawUrl.includes('telegram') || rawUrl.includes('t.me') || rawUrl.includes('telegram-cdn')) {
                         return `/api/proxy-image?url=${encodeURIComponent(rawUrl)}`;
                       }
