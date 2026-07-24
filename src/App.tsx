@@ -26,9 +26,86 @@ const processAndExtractConfig = (rawPosts: Post[]) => {
   let foundConfig = { ...DEFAULT_APP_CONFIG };
   const filtered: Post[] = [];
 
-  for (const post of rawPosts) {
-    // 1. Extract JSON configuration post if present
-    if (post.text && post.text.includes('{') && post.text.includes('}')) {
+  const list = Array.isArray(rawPosts) ? rawPosts : [];
+
+  for (const post of list) {
+    const postText = post.text || '';
+
+    // 1. Check for #انځورونه hashtag post to extract side menu, about cover, and profile avatar images
+    if (postText.includes('#انځورونه')) {
+      const hashtagImages: string[] = [];
+
+      // A. Extract attached photo images from Telegram post
+      if (post.images && Array.isArray(post.images) && post.images.length > 0) {
+        hashtagImages.push(...post.images);
+      }
+
+      // B. Extract direct image URLs from post text (e.g. https://.../photo.jpg)
+      const urlRegex = /(https?:\/\/[^\s<"']+?\.(?:png|jpg|jpeg|webp|gif|svg)[^\s<"']*)/gi;
+      let match;
+      while ((match = urlRegex.exec(postText)) !== null) {
+        if (!hashtagImages.includes(match[1])) {
+          hashtagImages.push(match[1]);
+        }
+      }
+
+      // C. Extract Telegram image / CDN / proxy links from post text
+      const tgImgRegex = /(https?:\/\/(?:t\.me|telegram\.org|cdn[0-9]?\.telegram|ph-cdn)[^\s<"']+)/gi;
+      while ((match = tgImgRegex.exec(postText)) !== null) {
+        if (!hashtagImages.includes(match[1])) {
+          hashtagImages.push(match[1]);
+        }
+      }
+
+      // D. Check for embedded JSON inside #انځورونه post
+      if (postText.includes('{') && postText.includes('}')) {
+        try {
+          const startIdx = postText.indexOf('{');
+          const endIdx = postText.lastIndexOf('}');
+          if (startIdx !== -1 && endIdx > startIdx) {
+            const jsonStr = postText.substring(startIdx, endIdx + 1);
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && typeof parsed === 'object') {
+              if (parsed.sidebar_cover_url) foundConfig.sidebar_cover_url = parsed.sidebar_cover_url;
+              if (parsed.about_cover_url) foundConfig.about_cover_url = parsed.about_cover_url;
+              if (parsed.creator_avatar_url) foundConfig.creator_avatar_url = parsed.creator_avatar_url;
+              if (parsed.scraped_images && Array.isArray(parsed.scraped_images)) {
+                hashtagImages.push(...parsed.scraped_images);
+              }
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      if (hashtagImages.length > 0) {
+        foundConfig.scraped_images = hashtagImages;
+        if (hashtagImages[0]) {
+          foundConfig.sidebar_cover_url = hashtagImages[0];
+        }
+        if (hashtagImages[1]) {
+          foundConfig.about_cover_url = hashtagImages[1];
+        } else if (hashtagImages[0]) {
+          foundConfig.about_cover_url = hashtagImages[0];
+        }
+        if (hashtagImages[2]) {
+          foundConfig.creator_avatar_url = hashtagImages[2];
+        } else if (hashtagImages[0]) {
+          foundConfig.creator_avatar_url = hashtagImages[0];
+        }
+      }
+
+      // If this hashtag post doesn't have an audio file, exclude it from chapter/audio list
+      let audioUrl = post.audio_url ? post.audio_url.trim() : '';
+      const isUnplayableHtmlPage = audioUrl.includes('t.me/') && !audioUrl.match(/\.(mp3|m4a|ogg|wav|aac|opus|flac|mp4)($|\?)/i) && !audioUrl.includes('file/');
+      if (!audioUrl || isUnplayableHtmlPage) {
+        continue;
+      }
+    }
+
+    // 2. Extract JSON configuration post if present
+    if (postText && postText.includes('{') && postText.includes('}')) {
       try {
         const startIdx = post.text.indexOf('{');
         const endIdx = post.text.lastIndexOf('}');
@@ -90,6 +167,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+  const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
 
   // Splash & Onboarding States
   const [showSplash, setShowSplash] = useState(true);
@@ -104,6 +182,11 @@ export default function App() {
         backListener = await CapacitorApp.addListener('backButton', () => {
           if (showExitConfirmModal) {
             setShowExitConfirmModal(false);
+            return;
+          }
+          if (isPlayerExpanded) {
+            setIsPlayerExpanded(false);
+            setActiveTab('home');
             return;
           }
           if (drawerOpen) {
@@ -129,6 +212,11 @@ export default function App() {
         setShowExitConfirmModal(false);
         return;
       }
+      if (isPlayerExpanded) {
+        setIsPlayerExpanded(false);
+        setActiveTab('home');
+        return;
+      }
       if (drawerOpen) {
         setDrawerOpen(false);
         return;
@@ -148,7 +236,7 @@ export default function App() {
       }
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [drawerOpen, activeTab, showExitConfirmModal]);
+  }, [drawerOpen, activeTab, showExitConfirmModal, isPlayerExpanded]);
 
   // Application Data States (Initialized from local cache for instant offline rendering)
   const [channelInfo, setChannelInfo] = useState<ChannelInfo | null>(() => {
@@ -269,8 +357,8 @@ export default function App() {
     for (const url of candidates) {
       try {
         const controller = new AbortController();
-        // 15 seconds timeout per candidate URL for mobile cellular networks and cold starts
-        const timer = setTimeout(() => controller.abort(), 15000);
+        // Fast 3.5 seconds timeout per candidate URL to quickly fallback to offline cached posts
+        const timer = setTimeout(() => controller.abort(), 3500);
         const res = await fetch(url, { 
           signal: controller.signal,
           referrerPolicy: 'no-referrer',
@@ -294,6 +382,34 @@ export default function App() {
       setLoading(true);
       setError(null);
 
+      // Instant offline loading: If user is offline and not forcing a refresh, load cached posts immediately
+      if (!navigator.onLine && !force) {
+        setIsOnline(false);
+        const localPosts = localStorage.getItem('pashto_cached_posts');
+        const localChannel = localStorage.getItem('pashto_cached_channel');
+        if (localPosts && localChannel) {
+          try {
+            const rawLocalPosts = JSON.parse(localPosts) as Post[];
+            const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
+            setPosts(filteredPosts);
+            setAppConfig(extractedConfig);
+            setChannelInfo(JSON.parse(localChannel));
+          } catch {
+            const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
+            setPosts(filteredPosts);
+            setAppConfig(extractedConfig);
+            setChannelInfo(FALLBACK_CHANNEL);
+          }
+        } else {
+          const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
+          setPosts(filteredPosts);
+          setAppConfig(extractedConfig);
+          setChannelInfo(FALLBACK_CHANNEL);
+        }
+        setLoading(false);
+        return;
+      }
+
       let channelData: ChannelInfo | null = null;
       let postsData: Post[] = [];
       let isDirectSuccess = false;
@@ -306,25 +422,71 @@ export default function App() {
           smartFetch(`/api/posts${forceParam}`),
         ]);
 
-        channelData = (await safeJsonParse(channelRes, 'چینل معلومات')) as ChannelInfo;
-        postsData = (await safeJsonParse(postsRes, 'کتابونه/فصلونه')) as Post[];
+        const parsedChannel = await safeJsonParse(channelRes, 'چینل معلومات');
+        if (parsedChannel && typeof parsedChannel === 'object') {
+          if (parsedChannel.channel && typeof parsedChannel.channel === 'object') {
+            channelData = parsedChannel.channel as ChannelInfo;
+          } else {
+            channelData = parsedChannel as ChannelInfo;
+          }
+        }
+
+        const parsedPosts = await safeJsonParse(postsRes, 'کتابونه/فصلونه');
+        let extractedPosts: Post[] = [];
+
+        if (Array.isArray(parsedPosts)) {
+          extractedPosts = parsedPosts;
+        } else if (parsedPosts && typeof parsedPosts === 'object') {
+          if (Array.isArray(parsedPosts.posts)) {
+            extractedPosts = parsedPosts.posts;
+          } else if (Array.isArray(parsedPosts.data)) {
+            extractedPosts = parsedPosts.data;
+          } else if (Array.isArray(parsedPosts.items)) {
+            extractedPosts = parsedPosts.items;
+          }
+        }
+
+        if (extractedPosts.length > 0) {
+          postsData = extractedPosts;
+        } else {
+          postsData = FALLBACK_CHAPTERS;
+        }
       } catch (serverErr) {
         console.warn('Server proxy fetch failed, attempting client-side direct Telegram fetch...', serverErr);
         // 2. Direct client-side Telegram public channel fetch
         try {
           const directData = await fetchTelegramDirect('afghan_bandi');
-          channelData = directData.channel;
-          postsData = directData.posts;
+          if (directData && directData.channel) {
+            channelData = directData.channel;
+          }
+          if (directData && Array.isArray(directData.posts) && directData.posts.length > 0) {
+            postsData = directData.posts;
+          } else {
+            postsData = FALLBACK_CHAPTERS;
+          }
           isDirectSuccess = true;
         } catch (directErr) {
           console.warn('Direct Telegram fetch failed:', directErr);
-          throw serverErr; // Throw original or let catch handler fallback
+          // Fallback gracefully to cache or default chapters
+          const localPosts = localStorage.getItem('pashto_cached_posts');
+          const localChannel = localStorage.getItem('pashto_cached_channel');
+          if (localPosts && localChannel) {
+            try {
+              postsData = JSON.parse(localPosts);
+              channelData = JSON.parse(localChannel);
+            } catch {
+              postsData = FALLBACK_CHAPTERS;
+              channelData = FALLBACK_CHANNEL;
+            }
+          } else {
+            postsData = FALLBACK_CHAPTERS;
+            channelData = FALLBACK_CHANNEL;
+          }
         }
       }
 
-      if (!channelData || !postsData) {
-        throw new Error('کوم معلومات ونه موندل شول.');
-      }
+      if (!channelData) channelData = FALLBACK_CHANNEL;
+      if (!postsData || !Array.isArray(postsData) || postsData.length === 0) postsData = FALLBACK_CHAPTERS;
 
       // Keep a fresh backup in localStorage
       localStorage.setItem('pashto_cached_posts', JSON.stringify(postsData));
@@ -333,45 +495,41 @@ export default function App() {
 
       const { filteredPosts, extractedConfig } = processAndExtractConfig(postsData);
       setChannelInfo(channelData);
-      setPosts(filteredPosts);
+      setPosts(filteredPosts.length > 0 ? filteredPosts : FALLBACK_CHAPTERS);
       setAppConfig(extractedConfig);
+      setError(null);
     } catch (err: any) {
       console.error('Fetch error:', err?.message || String(err));
       
-      // Construct exact descriptive diagnostic error
-      const postsUrl = getApiUrl('/api/posts');
-      const channelUrl = getApiUrl('/api/channel-info');
-      const errName = err?.name || 'NetworkError';
-      const errMsg = err?.message || err?.toString() || 'Failed to fetch';
-      const savedServer = localStorage.getItem('pashto_novel_backend_url') || 'د سټوډیو اصلي سرور';
-      const detailInfo = `خطا (Error Type): ${errName}\nتفصیل (Message): ${errMsg}\nد چینل لینک (Channel API): ${channelUrl}\nد کتابونو لینک (Posts API): ${postsUrl}\nټاکل شوی د سرور ادرس (Active Backend URL): ${savedServer}\nوخت (Timestamp): ${new Date().toISOString()}\nمجموعه سیستم (User Agent): ${navigator.userAgent}`;
-      setError(detailInfo);
-
       // Load cached data or offline chapters if available
       const localPosts = localStorage.getItem('pashto_cached_posts');
       const localChannel = localStorage.getItem('pashto_cached_channel');
+      
+      let loadedFromCache = false;
       if (localPosts && localChannel) {
         try {
-          const rawLocalPosts = JSON.parse(localPosts) as Post[];
-          const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
-          setPosts(filteredPosts);
-          setAppConfig(extractedConfig);
-          setChannelInfo(JSON.parse(localChannel));
-          setError(null);
+          const rawLocalPosts = JSON.parse(localPosts);
+          const rawLocalChannel = JSON.parse(localChannel);
+          if (Array.isArray(rawLocalPosts) && rawLocalPosts.length > 0) {
+            const { filteredPosts, extractedConfig } = processAndExtractConfig(rawLocalPosts);
+            setPosts(filteredPosts.length > 0 ? filteredPosts : FALLBACK_CHAPTERS);
+            setAppConfig(extractedConfig);
+            setChannelInfo(rawLocalChannel || FALLBACK_CHANNEL);
+            loadedFromCache = true;
+          }
         } catch (e) {
-          const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
-          setPosts(filteredPosts);
-          setAppConfig(extractedConfig);
-          setChannelInfo(FALLBACK_CHANNEL);
-          setError(null);
+          // ignore cache parse error
         }
-      } else {
+      }
+
+      if (!loadedFromCache) {
         const { filteredPosts, extractedConfig } = processAndExtractConfig(FALLBACK_CHAPTERS);
         setPosts(filteredPosts);
         setAppConfig(extractedConfig);
         setChannelInfo(FALLBACK_CHANNEL);
-        setError(null);
       }
+
+      setError(null);
       setIsOnline(false);
     } finally {
       setLoading(false);
@@ -860,11 +1018,11 @@ export default function App() {
 
   return (
     <AnimatePresence mode="wait">
-      {showSplash ? (
+      {(showSplash || (loading && posts.length === 0)) ? (
         <SplashScreen
           key="splash"
           appName={channelInfo ? channelInfo.name : 'افغان بانډي'}
-          loading={loading && !channelInfo}
+          loading={loading && posts.length === 0}
           onFinish={() => setShowSplash(false)}
         />
       ) : showOnboarding ? (
@@ -872,7 +1030,7 @@ export default function App() {
           key="onboarding"
           appName={channelInfo ? channelInfo.name : 'افغان بانډي'}
           appConfig={appConfig}
-          loading={loading && !channelInfo}
+          loading={false}
           onComplete={() => {
             localStorage.setItem('pashto_onboarding_completed', 'true');
             setShowOnboarding(false);
@@ -1243,6 +1401,17 @@ export default function App() {
               onDismiss={handleDismissPlayer}
               appConfig={appConfig}
               channelName={channelInfo?.name || "افغان بانډي"}
+              isExpanded={isPlayerExpanded}
+              onExpandedChange={(expanded) => {
+                if (expanded && !isPlayerExpanded) {
+                  window.history.pushState({ player: true }, '');
+                }
+                setIsPlayerExpanded(expanded);
+              }}
+              onReturnToHome={() => {
+                setIsPlayerExpanded(false);
+                setActiveTab('home');
+              }}
             />
 
             {/* Floating Bottom Navigation Bar */}

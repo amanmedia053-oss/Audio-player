@@ -14,6 +14,12 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   about_creator_sub: 'تخنیکي څانګه او ډیزاین بستر',
   about_intro_text: 'موږ د زړه له تله د پښتو ژبې او بډایه ادبیاتو مینه وال یو. د نوو ډیجیټل وسایلو او غږیزو ټیکنالوژیو په مرسته هڅه کوو چې د خپل ګران هېواد بډايه کلتوري ارزښتونه او غوره رنګین ناولونه د غږ په هنر کې ستاسو لاسونو ته درکړو. زموږ هدف د ادبیاتو چټک او اسانه لاسرسی، او د ځوان نسل پوهنه او هڅونه ده.',
 
+  about_arranger_title: 'د خپرونو او مینځپانګې ترتیب کوونکی',
+  about_arranger_name: 'ترتیب او تنظیم کوونکی',
+  about_arranger_role: 'د غږیزو کتابونو او داستانونو د راټولولو او ترتیب مسؤل',
+  about_arranger_sub: 'د غږیز کتابتون ډیزاین او تدوین',
+  about_arranger_note: 'د افغان بانډي د غږیزو خپرونو او کتابونو مینه والو ته په خورا دقت او کیفیت سره مواد راټولوي او ترتیبوي.',
+
   about_telegram_url: 'https://t.me/afghan_bandi',
   about_whatsapp_url: 'https://wa.me/93700000000',
   about_facebook_url: 'https://facebook.com/afghan_bandi',

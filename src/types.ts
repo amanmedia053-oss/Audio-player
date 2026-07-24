@@ -37,6 +37,14 @@ export interface AppConfig {
   about_creator_sub: string;
   about_intro_text: string;
 
+  // About Tab Arranger / Compiler details
+  about_arranger_title?: string;
+  about_arranger_name?: string;
+  about_arranger_role?: string;
+  about_arranger_sub?: string;
+  about_arranger_note?: string;
+  arranger_avatar_url?: string;
+
   // Social Links
   about_telegram_url: string;
   about_whatsapp_url: string;
