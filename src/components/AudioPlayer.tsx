@@ -182,7 +182,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   rx={radius}
                   ry={radius}
                   fill="none"
-                  stroke="#ffb900"
+                  stroke="var(--accent-color)"
                   strokeWidth={strokeWidth}
                   strokeDasharray={perimeter || 1000}
                   strokeDashoffset={strokeDashoffset || 0}
@@ -396,9 +396,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
                     onChange={handleProgressChange}
                     className="w-full h-2 bg-[#2d2c30] rounded-lg appearance-none cursor-pointer accent-[#ffb900] transition-colors focus:outline-none"
                     style={{
-                      background: `linear-gradient(to left, #ffb900 ${
+                      background: `linear-gradient(to left, var(--accent-color) ${
                         (currentTime / (duration || 1)) * 100
-                      }%, #2d2c30 ${(currentTime / (duration || 1)) * 100}%)`,
+                      }%, var(--border-subtle, #2d2c30) ${(currentTime / (duration || 1)) * 100}%)`,
                     }}
                   />
                 </div>

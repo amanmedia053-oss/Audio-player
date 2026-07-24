@@ -10,7 +10,8 @@ import {
   Share2,
   MessageSquare,
   Check,
-  Heart
+  Heart,
+  Sliders
 } from 'lucide-react';
 import { ActiveTab } from './NavigationBar';
 
@@ -18,6 +19,7 @@ interface SidebarDrawerProps {
   channelInfo: ChannelInfo | null;
   activeTab: ActiveTab;
   onChangeTab: (tab: ActiveTab) => void;
+  onOpenSettings?: () => void;
   historyCount: number;
   favoritesCount: number;
   isOpen: boolean;
@@ -29,6 +31,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   channelInfo,
   activeTab,
   onChangeTab,
+  onOpenSettings,
   historyCount,
   favoritesCount,
   isOpen,
@@ -144,6 +147,21 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                   <span>{appConfig.tab_home}</span>
                 </button>
 
+                {/* تنظیمات (Settings) */}
+                {onOpenSettings && (
+                  <button
+                    id="sidebar-btn-settings"
+                    onClick={() => {
+                      onClose();
+                      onOpenSettings();
+                    }}
+                    className="w-full flex items-center justify-between p-3 text-[#ffb900] bg-[#ffb900]/10 hover:bg-[#ffb900]/20 rounded-xl transition-all cursor-pointer font-bold border border-[#ffb900]/20"
+                  >
+                    <Sliders className="w-4 h-4 text-[#ffb900]" />
+                    <span>تنظیمات (Settings)</span>
+                  </button>
+                )}
+
                 {/* خوښ شوي غږونه (Favorites) */}
                 <button
                   id="sidebar-btn-favorites"
@@ -201,18 +219,16 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
                 </button>
 
                 {/* 4. رسمي ټلیګرام چینل */}
-                {appConfig.about_telegram_url && (
-                  <a
-                    id="sidebar-btn-telegram"
-                    href={appConfig.about_telegram_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-between p-3 text-[#c7c6ca] hover:bg-[#2d2c30] rounded-xl transition-all border border-transparent"
-                  >
-                    <Send className="w-4 h-4 -rotate-45 text-[#ffb900]" />
-                    <span>ټلیګرام چینل</span>
-                  </a>
-                )}
+                <a
+                  id="sidebar-btn-telegram"
+                  href="https://t.me/obaidapp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full flex items-center justify-between p-3 text-[#c7c6ca] hover:bg-[#2d2c30] rounded-xl transition-all border border-transparent"
+                >
+                  <Send className="w-4 h-4 -rotate-45 text-[#ffb900]" />
+                  <span>د اپلیکیشنونو ټلیګرام چینل</span>
+                </a>
 
 
                 {/* 5. ملګرو سره شریکول */}

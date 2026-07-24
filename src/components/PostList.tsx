@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Post, PlaybackProgress, AppConfig } from '../types';
 import { getApiUrl } from '../utils';
-import { Play, Pause, Clock, Search, BookOpen, ChevronLeft, Heart, RefreshCw, Loader2, HardDriveDownload, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, Clock, Search, BookOpen, ChevronLeft, Heart, RefreshCw, Loader2 } from 'lucide-react';
 
 interface PostListProps {
   posts: Post[];
@@ -189,12 +189,12 @@ export const PostList: React.FC<PostListProps> = ({
                         }}
                         className={`w-12 h-12 flex items-center justify-center rounded-2xl transition-all duration-200 active:scale-95 border cursor-pointer ${
                           isCurrent
-                            ? 'bg-[#ffb900] text-black border-[#ffb900] shadow-lg shadow-[#ffb900]/20'
-                            : 'bg-[#2d2c30] hover:bg-[#ffb900] text-[#ffb900] hover:text-black border-[#3e3d42]'
+                            ? 'bg-[#ffb900] text-black border-[#ffb900] shadow-lg shadow-[#ffb900]/30 ring-2 ring-[#ffb900]/40'
+                            : 'bg-[#ffb900] hover:bg-[#e0a300] text-black border-[#ffb900] shadow-md shadow-[#ffb900]/20'
                         }`}
                         title="غږ واورئ"
                       >
-                        <Play className="w-5 h-5 fill-current ml-0.5" />
+                        <Play className="w-5 h-5 fill-black text-black ml-0.5" />
                       </button>
                     )}
                   </div>
@@ -226,13 +226,6 @@ export const PostList: React.FC<PostListProps> = ({
                         </span>
                       )}
 
-                      {cachedAudioIds.includes(post.id) && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                          <span>افلاین ذخیره شوی</span>
-                        </span>
-                      )}
-
                       <span className="text-[#8e8d91] font-mono text-[10px] hidden sm:inline">
                         ID: {post.id}
                       </span>
@@ -241,29 +234,6 @@ export const PostList: React.FC<PostListProps> = ({
 
                   {/* Left Action / Indicator Group */}
                   <div className="shrink-0 self-center flex items-center gap-2">
-                    {/* Offline Download/Cache Button */}
-                    {onToggleCacheAudio && (
-                      <button
-                        id={`post-cache-btn-${post.id}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleCacheAudio(post.id);
-                        }}
-                        className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-200 active:scale-90 cursor-pointer ${
-                          cachedAudioIds.includes(post.id)
-                            ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-sm shadow-emerald-500/5'
-                            : 'bg-[#2d2c30]/50 hover:bg-[#ffb900]/10 border border-[#2d2c30] hover:border-[#ffb900]/30 text-[#8e8d91] hover:text-[#ffb900]'
-                        }`}
-                        title={
-                          cachedAudioIds.includes(post.id)
-                            ? 'افلاین دوسیه په حافظه کې شتون لري (د پاکولو لپاره کلیک وکړئ)'
-                            : 'د افلاین اورېدلو لپاره ډانلوډ/ذخیره کول'
-                        }
-                      >
-                        <HardDriveDownload className="w-4.5 h-4.5" />
-                      </button>
-                    )}
-
                     {/* Favorite Button */}
                     <button
                       id={`post-fav-btn-${post.id}`}

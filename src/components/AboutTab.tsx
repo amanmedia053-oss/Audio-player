@@ -50,12 +50,6 @@ export const AboutTab: React.FC<AboutTabProps> = ({ channelInfo, appConfig }) =>
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-          <div className="absolute bottom-4 right-5 flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-[#ffb900] animate-pulse" />
-            <span className="text-[10px] font-bold text-[#ffb900] tracking-wide font-sans">
-              {channelInfo?.name || "افغان بانډي کلتوري بهیر"}
-            </span>
-          </div>
         </div>
 
         {/* Creator Info and Overlapping Profile Avatar */}
