@@ -157,56 +157,7 @@ export async function fetchTelegramDirect(channelHandle: string = 'afghan_bandi'
 /**
  * Built-in fallback audio chapters when network is completely offline
  */
-export const FALLBACK_CHAPTERS: Post[] = [
-  {
-    id: "afg-images-post",
-    text: `#انځورونه
-د افغان بانډي د رسمي کاریال او خپرونو انځورونه او کاورونه:
-1. د څنګ مینو غټ کاور انځور
-2. د زموږ په اړه برخه کاور انځور
-3. د جوړوونکي او لیکوال پروفایل انځور`,
-    audio_url: "",
-    duration: "",
-    date: new Date().toISOString(),
-    images: [
-      "https://images.unsplash.com/photo-1506880018603-83d5b814b5a6?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1513001900722-370f803f498d?auto=format&fit=crop&w=1000&q=80",
-      "https://images.unsplash.com/photo-1607990283143-e81e7a2c93ab?auto=format&fit=crop&w=300&h=300&q=80"
-    ]
-  },
-  {
-    id: "afg-offline-1",
-    text: "د افغان بندي غږیز ناول - لومړی فصل: د ګوانتانامو له تورې زندان څخه د زړه دردونکي کیسې پیل، ظالمانه تحقیقات او د نوي مبارزې روحیه.",
-    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-    duration: "18:20",
-    date: new Date().toISOString(),
-    images: ["https://images.unsplash.com/photo-1474932430478-367db26836c1?w=600&h=400&fit=crop"]
-  },
-  {
-    id: "afg-offline-2",
-    text: "د افغان بندي غږیز ناول - دویم فصل: د بګرام پنجرې او د زړو بندي ملګرو داستانونه، ترخې خاطرې او په صابر زړه د وطن یادونه.",
-    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-    duration: "14:40",
-    date: new Date(Date.now() - 86400000).toISOString(),
-    images: ["https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&h=400&fit=crop"]
-  },
-  {
-    id: "afg-offline-3",
-    text: "د افغان بندي غږیز ناول - درېیم فصل: د پټو اوښکو مینه او د تورې شپې الهامونه، د برخلیک ستونزې او د هیلې څرک.",
-    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-    duration: "12:15",
-    date: new Date(Date.now() - 172800000).toISOString(),
-    images: ["https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&h=400&fit=crop"]
-  },
-  {
-    id: "afg-offline-4",
-    text: "د افغان بندي غږیز ناول - څلورم فصل: د ازادۍ د کاروان را رسیدل او د خپلو مجاهدینو ملګرو سره لیدنه او ملګرتیا.",
-    audio_url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-    duration: "15:10",
-    date: new Date(Date.now() - 259200000).toISOString(),
-    images: ["https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=600&h=400&fit=crop"]
-  }
-];
+export const FALLBACK_CHAPTERS: Post[] = [];
 
 export const FALLBACK_CHANNEL: ChannelInfo = {
   name: "افغان بندي (Afghan Bandi)",
